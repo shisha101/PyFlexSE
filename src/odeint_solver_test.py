@@ -54,16 +54,15 @@ def main():
     x_t = odeint(system_function_real, initial_cond, t, args=(params,))  # note that the end comma is needed
 
     plot(t, x_t, 1)
-    raw_input("press to exit")
     robot_model = msd_model(initial_cond)
     robot_model.print_params()
 
     x_t2 = odeint(robot_model.model_ode, initial_cond, t, args=(params,))  # note that the end comma is needed
     plot(t, x_t2, 2)
-    raw_input("press to exit")
 
 
 if __name__ == '__main__':
     print "Starting ode test prog."
     main()
     print "ode solver done"
+    raw_input("press to exit")

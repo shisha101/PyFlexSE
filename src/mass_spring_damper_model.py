@@ -1,8 +1,3 @@
-import numpy as np
-import matplotlib.pyplot as plt
-from scipy.integrate import odeint
-
-
 class msd_model:
     def __init__(self, init_cond):
 

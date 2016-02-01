@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from scipy.integrate import odeint
 from robot_model_1 import RobotModel2D, RobotModel3D
 from casadi import *
-import cProfile
+# import cProfile
 
 print "inside main function"
 
@@ -155,7 +155,7 @@ def main():
     x6_t0 = 0.0
     initial_cond = [x1_t0, x2_t0, x3_t0, x4_t0, x5_t0, x6_t0]
 
-    # parameters 3D
+    # parameters 3D odeint
     v_l = 0.9
     v_r = 1.0
     dRoll = 0.02
@@ -168,6 +168,15 @@ def main():
     plot_3d(t, x_t, 3)
 
     # Casadi 3D
+
+    # parameters 3D odeint
+    v_l = 0.9
+    v_r = 1.0
+    dRoll = 0.02
+    dPitch = 0.0
+    dYaw = 0.0
+    params = [v_l, v_r, dRoll, dPitch, dYaw]
+
     I_options = {}
     I_options["t0"] = t_start
     I_options["tf"] = t_end
@@ -180,8 +189,7 @@ def main():
     sim.setInput(initial_cond, "x0")
     sim.setInput(np.append(robot_model_3D.p_num, params), "p")
     sim.evaluate()
-
-    plot_3d(t, x_t, 4)
+    plot_3d(t, sim.getOutput().toArray().T, 4)
 
 
 if __name__ == '__main__':
@@ -190,4 +198,5 @@ if __name__ == '__main__':
     # cProfile.run("odeint_function()")
     # cProfile.run("casadi_function()")
     print "ode solver done"
-    raw_input("end of test !")
+    print "end of test !"
+    raw_input("press to exit")

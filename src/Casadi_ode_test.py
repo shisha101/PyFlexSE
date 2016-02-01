@@ -1,6 +1,4 @@
-import sys
 import numpy as np
-sys.path.append('/home/abs8rng/catkin_ws/src/my_packages/robot_py_localization/src/casadi-py27-np1.9.1-v2.4.2')
 from casadi import *
 import matplotlib.pyplot as plt
 
@@ -85,24 +83,24 @@ for i, time_step in enumerate(time_array):
     integrator.setInput(initial_cond,"x0")
     integrator.evaluate()
     initial_cond = integrator.getOutput()[:,0]
-    X_t[i, 0] = integrator.getOutput()[0,:]
-    X_t[i, 1] = integrator.getOutput()[1,:]
+    X_t[i, 0] = integrator.getOutput()[0, :]
+    X_t[i, 1] = integrator.getOutput()[1, :]
 
 
 plot(time_array, X_t, 1)
-raw_input("press to exit")
 
 
-#working simulator
+# working simulator
 sim = Simulator("sim", integrator, time_array)
-sim.setInput(initial_cond, "x0")
-sim.setInput([mass_r,sc_r,df_r,f_r], "p")
+sim.setInput([x0_t0, x1_t0], "x0")
+sim.setInput([mass_r, sc_r, df_r, f_r], "p")
 sim.evaluate()
-print sim.getOutput()[0,:].T
+plot(time_array, sim.getOutput().toArray().T, 2)
+# print sim.getOutput()[0, :].T
 # print type(sim.getOutput().toArray())
 # print type(sim.getOutput(0).T)
 
-raw_input("plot 2")
+raw_input("press to exit")
 
 
 # integrator.setOption("abstol",1e-10) # tolerance
