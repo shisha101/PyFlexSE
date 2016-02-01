@@ -9,7 +9,7 @@ print "inside main function"
 
 
 def plot_2d(x, y, fig_nr):
-    fig = plt.figure(fig_nr,figsize=(8, 8))
+    fig = plt.figure(fig_nr, figsize=(8, 8))
 
     plot_1 = fig.add_subplot(411)
     plot_1.plot(x, y[:, 0])
@@ -38,7 +38,7 @@ def plot_2d(x, y, fig_nr):
 
 
 def plot_3d(x, y, fig_nr):
-    fig = plt.figure(fig_nr,figsize=(8, 18))
+    fig = plt.figure(fig_nr, figsize=(8, 18))
 
     plot_1 = fig.add_subplot(711)
     plot_1.plot(x, y[:, 0])
@@ -82,7 +82,6 @@ def plot_3d(x, y, fig_nr):
 
     fig.tight_layout()
     fig.show()
-
 
 
 # def odeint_function():
@@ -147,7 +146,6 @@ def main():
     print (sim.getOutput().toArray().T.shape, "shape of array")
     plot_2d(t, sim.getOutput().toArray().T, 2)
 
-
     # IC 3D
     x1_t0 = 0.0
     x2_t0 = 0.0
@@ -157,7 +155,7 @@ def main():
     x6_t0 = 0.0
     initial_cond = [x1_t0, x2_t0, x3_t0, x4_t0, x5_t0, x6_t0]
 
-    # # parameters 3D
+    # parameters 3D
     v_l = 0.9
     v_r = 1.0
     dRoll = 0.02
@@ -168,7 +166,6 @@ def main():
     robot_model_3D = RobotModel3D(1.5, 0.33)
     x_t = odeint(robot_model_3D.system_ode_odeint, initial_cond, t, args=(params,))  # note that the end comma is needed
     plot_3d(t, x_t, 3)
-
 
     # Casadi 3D
     I_options = {}
@@ -185,8 +182,6 @@ def main():
     sim.evaluate()
 
     plot_3d(t, x_t, 4)
-
-
 
 
 if __name__ == '__main__':

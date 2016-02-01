@@ -10,7 +10,6 @@ class SystemModel:
         self.outputs = []
         self.states = []
 
-
     def get_p_numeric(self):
         return self.p_num
 
@@ -25,7 +24,7 @@ class SystemModel:
 
 
 class RobotModel2D(SystemModel):
-    def __init__(self,w_d_n = 0, w_r_n = 0):
+    def __init__(self, w_d_n=0, w_r_n=0):
         SystemModel.__init__(self)
         # super(SystemModel, self).__init__(self)
         # numeric vars
@@ -39,14 +38,14 @@ class RobotModel2D(SystemModel):
         # symbolic params
         self.w_d = SX.sym("w_d")
         self.w_r = SX.sym("w_r")
-        self.p_sym = np.array([self.w_d,self.w_r])
+        self.p_sym = np.array([self.w_d, self.w_r])
         self.t_sym = SX.sym("t")
 
         # symbolic states
-        self.x1 = SX.sym("x1") # x coordinate
-        self.x2 = SX.sym("x2") # y coordinate
-        self.x3 = SX.sym("x3") # theta (orientation)
-        self.states = np.array([self.x1,self.x2, self.x3])
+        self.x1 = SX.sym("x1")  # x coordinate
+        self.x2 = SX.sym("x2")  # y coordinate
+        self.x3 = SX.sym("x3")  # theta (orientation)
+        self.states = np.array([self.x1, self.x2, self.x3])
 
         # symbolic inputs
         self.v_l = SX.sym("v_l")
@@ -93,7 +92,7 @@ class RobotModel3D(RobotModel2D):
         self.x4 = SX.sym("x4")  # roll
         self.x5 = SX.sym("x5")  # pitch
         self.x6 = SX.sym("x6")  # yaw
-        self.states = np.append(self.states,np.array([self.x4, self.x5, self.x6]))
+        self.states = np.append(self.states, np.array([self.x4, self.x5, self.x6]))
 
         # outputs
         self.outputs = self.states
@@ -109,7 +108,7 @@ class RobotModel3D(RobotModel2D):
         x6_dot = (self.v_r - self.v_l)*cos(self.x4)/self.w_d
         self.X_dot = np.array([x1_dot, x2_dot, x3_dot, x4_dot, x5_dot, x6_dot])
         self.casadi_function = SXFunction("casadi_ode_function", daeIn(x=self.states,
-                                                                       p=np.append(self.p_sym,self.inputs),
+                                                                       p=np.append(self.p_sym, self.inputs),
                                                                        t=self.t_sym), daeOut(ode=self.X_dot))
 
     def system_ode_odeint(self, x, t, params):

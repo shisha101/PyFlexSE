@@ -63,7 +63,6 @@ def main():
     raw_input("press to exit")
 
 
-
 if __name__ == '__main__':
     print "Starting ode test prog."
     main()

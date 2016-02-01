@@ -124,5 +124,4 @@ raw_input("plot 2")
 # print integrator({'x0':initial_cond, 'p':[mass_r, sc_r, df_r, f_r]})
 
 
-
 # params = [mass, sc, df, F]
