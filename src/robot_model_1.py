@@ -8,19 +8,48 @@ class SystemModel:
         self.p_sym = []
         self.inputs = []
         self.outputs = []
-        self.states = []
+        self.state = []
+        # additions
+        self.current_state = []
+        self.system_equations = None
+        self.system_eq_jac = None
+        self.X_dot = None
+        self.sensor_cov = []
+        self.system_cov = []
+        self.init_estimate_cov = []
+        self.t_sym = SX.sym("t")
+
+    def get_sys_eq(self):
+        if self.X_dot is not None:
+            return self.X_dot
 
     def get_p_numeric(self):
-        return self.p_num
+        if not self.p_num:
+            return self.p_num
 
     def get_p_symbolic(self):
-        return self.p_sym
+        if not self.p_sym:
+            return self.p_sym
 
     def get_inputs(self):
-        return self.inputs
+        if not self.inputs:
+            return self.inputs
 
     def get_outputs(self):
-        return self.outputs
+        if not self.outputs:
+            return self.outputs
+
+    def update_system_state(self, new_state):  # addition
+        self.current_state = new_state
+
+    def print_debug_casadi(self):  # addition
+        if self.system_equations is not None:
+            print "the number of input(s) %s output(s) %s " % (self.system_equations.nIn(),self.system_equations.nOut())
+            print "the input(s) : %s " %(self.system_equations.symbolicInput())
+            print "the output(s): %s " %(self.system_equations.symbolicOutput())
+            print "the system input p is %s " %(self.system_equations.getInput("p"))
+            print "the jacobian wrt to x is %s" %(self.system_equations.jacobian("x"))
+            print "the jacobian wrt to p is %s"%(self.system_equations.jacobian("p"))
 
 
 class RobotModel2D(SystemModel):
