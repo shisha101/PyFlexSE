@@ -108,36 +108,35 @@ class RobotModel3D(RobotModel2D):
         # super(RobotModel2D, self).__init__(self, w_d_n, w_r_n)
         RobotModel2D.__init__(self, w_d_n, w_r_n)
 
-        # numeric params and symbolic params are the same as RobotModle2D
+        # numeric params and symbolic params are the same as RobotModel2D
 
         # symbolic inputs # gyro readings
         roll_dot = SX.sym("dRoll")
         pitch_dot = SX.sym("dPitch")
         yaw_dot = SX.sym("dYaw")
-        self.inputs = np.append(self.inputs, np.array([roll_dot, pitch_dot, yaw_dot]))
+        additional_inputs = vertcat([roll_dot, pitch_dot, yaw_dot])
+        self.inputs = vertcat([self.inputs, additional_inputs])
 
         # symbolic states
-        # note that x3 is now the z coordinate
-        self.x4 = SX.sym("x4")  # roll
-        self.x5 = SX.sym("x5")  # pitch
-        self.x6 = SX.sym("x6")  # yaw
-        self.states = np.append(self.states, np.array([self.x4, self.x5, self.x6]))
+        self.state = SX.sym("x", 6)  # x[0] coordinate, y[1] coordinate, z[2] coordinate, roll[3], pitch[4], yaw[5]
+        x = self.state  # used for short hand notation during the dev of equations
 
         # outputs
-        self.outputs = self.states
+        self.outputs = self.state
 
         # casadi function
-        x1_dot = 0.5*(self.v_l+self.v_r)*cos(self.x6)*cos(self.x5)
-        x2_dot = 0.5*(self.v_l+self.v_r)*sin(self.x6)*cos(self.x5)
+        x1_dot = 0.5*(self.inputs[0]+self.inputs[1])*cos(x[5])*cos(x[4])
+        x2_dot = 0.5*(self.inputs[0]+self.inputs[1])*sin(x[5])*cos(x[4])
         # note the negative sign for pitch due to the RH coordinate
         # system with x forward y left and z up (ROS convention)
-        x3_dot = 0.5*(self.v_l+self.v_r)*sin(-self.x5)
+        x3_dot = 0.5*(self.inputs[0]+self.inputs[1])*sin(-x[4])
         x4_dot = roll_dot
         x5_dot = pitch_dot
-        x6_dot = (self.v_r - self.v_l)*cos(self.x4)/self.w_d
-        self.X_dot = np.array([x1_dot, x2_dot, x3_dot, x4_dot, x5_dot, x6_dot])
-        self.casadi_function = SXFunction("casadi_ode_function", daeIn(x=self.states,
-                                                                       p=np.append(self.p_sym, self.inputs),
+        x6_dot = (self.inputs[1] - self.inputs[0])*cos(x[3])/self.p_sym[0]
+        # x6_dot = yaw_dot  #more accurate
+        self.X_dot = vertcat([x1_dot, x2_dot, x3_dot, x4_dot, x5_dot, x6_dot])
+        self.casadi_function = SXFunction("casadi_ode_function", daeIn(x=self.state,
+                                                                       p=vertcat([self.inputs, self.p_sym]),
                                                                        t=self.t_sym), daeOut(ode=self.X_dot))
 
     def system_ode_odeint(self, x, t, params):
