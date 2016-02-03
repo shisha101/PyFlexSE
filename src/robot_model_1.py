@@ -8,15 +8,26 @@ class SystemModel:
         for the parameter vector make sure that the inputs go in before the parameters(constants/time varying)
         """
         self.p_num = []
-        self.p_sym = []
-        self.inputs = []
-        self.outputs = []
-        self.state = []
+        self.p_sym = None
+        self.inputs = None
+        self.outputs = None
+        self.state = None
         # additions
         self.current_state = []
-        self.system_equations = None
-        self.system_eq_jac = None
-        self.X_dot = None
+
+        self.X_dot = None  # expression (SX)
+        self.X_dot_func = None  # CasADi (SXFunciton)
+        self.jac_X_dot_wrt_x = None  # Joacobian with respect to states
+        self.jac_X_dot_wrt_p = None  # Joacobian with respect to parameters(all (inputs + system parameters))
+        self.jac_X_dot_complete = None  # Jacobian with respect to all states and parameters as well as time
+
+        # not being used yet
+        # self.system_equations = None  # the concatination of the state transition equations and the output equations
+        # self.output_eq = None
+        # self.jac_complete = None  # complete system jacobian (wrt states, params(all), time)
+        # self.jac_sys_wrt_states = None
+        # self.jac_sys_wrt_params = None
+
         self.sensor_cov = []
         self.system_cov = []
         self.init_estimate_cov = []
@@ -26,33 +37,72 @@ class SystemModel:
         if self.X_dot is not None:
             return self.X_dot
 
+    # def compute_sys_eq_jac(self):
+    #     if self.system_equations is not None:
+    #         self.jac_complete = self.system_equations.fullJacobian()
+    #         self.jac_sys_wrt_states = self.system_equations.jacobian(0)
+    #         self.jac_sys_wrt_params = self.system_equations.jacobian(1)
+
+    def compute_jac_Xdot(self):
+        if self.X_dot is not None:
+            # self.jac_X_dot_complete = jacobian(
+            #         self.X_dot, vertcat([self.state, self.inputs])) # SX expression wrt X and U
+            self.jac_X_dot_complete = self.X_dot_func.fullJacobian()
+            self.jac_X_dot_wrt_x = self.X_dot_func.jacobian("x")  # (0)
+            self.jac_X_dot_wrt_p = self.X_dot_func.jacobian("p")  # (2) # x, z, p, t (the order of vars in the ode)
+
+    # getter functions
     def get_p_numeric(self):
         if not self.p_num:
             return self.p_num
+        else:
+            print "no numeric parameters set"
 
     def get_p_symbolic(self):
-        if not self.p_sym:
+        if self.p_sym is not None:
             return self.p_sym
+        else:
+            print "no symbolic parameters set"
 
     def get_inputs(self):
-        if not self.inputs:
+        if self.inputs is not None:
             return self.inputs
+        else:
+            print "no inputs set"
 
     def get_outputs(self):
-        if not self.outputs:
+        if self.outputs is not None:
             return self.outputs
+        else:
+            print "no outputs set"
 
-    def update_system_state(self, new_state):  # addition
-        self.current_state = new_state
+    def get_states(self):
+        if self.state is not None:
+            return self.state
+        else:
+            print "no states set, this system has not been initialized correctly"
 
+    def get_state_transiton_eq(self):
+        if self.X_dot is not None:
+            return self.X_dot
+        else:
+            print "no states set, this system has not been initialized correctly"
+
+    def get_current_state(self):
+        if not self.current_state:
+            return self.current_state
+        else:
+            print "no current state available"
+
+    # debug functions
     def print_debug_casadi(self):  # addition
-        if self.system_equations is not None:
-            print "the number of input(s) %s output(s) %s " % (self.system_equations.nIn(),self.system_equations.nOut())
-            print "the input(s) : %s " %(self.system_equations.symbolicInput())
-            print "the output(s): %s " %(self.system_equations.symbolicOutput())
-            print "the system input p is %s " %(self.system_equations.getInput("p"))
-            print "the jacobian wrt to x is %s" %(self.system_equations.jacobian("x"))
-            print "the jacobian wrt to p is %s"%(self.system_equations.jacobian("p"))
+        if self.X_dot_func is not None:
+            print "the number of input(s) %s output(s) %s " % (self.X_dot_func.nIn(), self.X_dot_func.nOut())
+            print "the input(s) : %s " % (self.X_dot_func.symbolicInput())
+            print "the output(s): %s " % (self.X_dot_func.symbolicOutput())
+            print "the system input p is %s " % (self.X_dot_func.getInput("p"))
+            print "the jacobian wrt to x is %s" % (self.X_dot_func.jacobian("x"))
+            print "the jacobian wrt to p is %s" % (self.X_dot_func.jacobian("p"))
 
 
 class RobotModel2D(SystemModel):
@@ -89,8 +139,8 @@ class RobotModel2D(SystemModel):
         x2_dot = sin(x[2])*(v_l+v_r)*0.5
         x3_dot = (v_r - v_l)/w_d
         self.X_dot = vertcat([x1_dot, x2_dot, x3_dot])
-        self.casadi_function = SXFunction('f', daeIn(x=self.state, p=vertcat([self.inputs, self.p_sym]), t=self.t_sym),
-                                          daeOut(ode=self.X_dot))
+        self.X_dot_func = SXFunction('f', daeIn(x=self.state, p=vertcat([self.inputs, self.p_sym]), t=self.t_sym),
+                                     daeOut(ode=self.X_dot))
 
     def system_ode_odeint(self, x, t, params):
         x1, x2, x3 = x
@@ -135,9 +185,9 @@ class RobotModel3D(RobotModel2D):
         x6_dot = (self.inputs[1] - self.inputs[0])*cos(x[3])/self.p_sym[0]
         # x6_dot = yaw_dot  #more accurate
         self.X_dot = vertcat([x1_dot, x2_dot, x3_dot, x4_dot, x5_dot, x6_dot])
-        self.casadi_function = SXFunction("casadi_ode_function", daeIn(x=self.state,
-                                                                       p=vertcat([self.inputs, self.p_sym]),
-                                                                       t=self.t_sym), daeOut(ode=self.X_dot))
+        self.X_dot_func = SXFunction("casadi_ode_function", daeIn(x=self.state,
+                                                                  p=vertcat([self.inputs, self.p_sym]),
+                                                                  t=self.t_sym), daeOut(ode=self.X_dot))
 
     def system_ode_odeint(self, x, t, params):
         x1, x2, x3, x4, x5, x6 = x
