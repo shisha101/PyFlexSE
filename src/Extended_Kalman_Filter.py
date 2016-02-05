@@ -24,7 +24,7 @@ class KF:
     """
     # TODO: maybe evaluate the complete prediction function as an SXFunction to speed
     # up evaluation what remains is then the substitution (evaluation)
-    # TODO: add some constant calculations during the initalization of the
+    # TODO: add some constant calculations during the initialization of the
     # class to save repetitive calculations of static matrices
     def __init__(self, input_system):
         self.system = input_system
@@ -33,7 +33,8 @@ class KF:
         self.B = None
         self.C = None
         self.L = None
-        self.Q = None
+        self.Q = None  # sys cov
+        self.R = None  # measurement cov
 
         # additional
         self.A_t = None   # A transpose to reduce computational costs
@@ -44,8 +45,8 @@ class KF:
         self.X_k_1_c = None # the most recent correction value
         self.X_k_1_p = None# this will be the most uptodate estimate (after correction or duing prediction) correction
         # will over write this value to keep it uptodate for the next prediction
-        self.P_k_1_c = None # the most recent correction value
-        self.P_k_1_p = None# this will be the most uptodate estimate (after correction or duing prediction) correction
+        self.P_k_1_c = None  # the most recent correction value (only values of corrected covariances)
+        self.P_k_1_p = None  # this will be the most uptodate estimate (after correction or duing prediction) correction
         # will over write this value to keep it uptodate for the next prediction
         self.K = None  # the Kalman filter Gain
         self.I = None  # implement an Identity matrix here instead of creating a new one every iteration
@@ -61,16 +62,24 @@ class KF:
         # this operation could technically be postponed to the correction step where it is needed but it is usfull to
         # have for inspection purposes on how the cov of our extimate changes with prediction
         # P_k_p = A * P_k_1_c * A.T + Q_k_1
-        P_k_p = mul(self.A, mul(self.P_k_1_p, self.A_t)) + mul(self.L, mul(self.Q, self.L_t))
+        P_k_p = self.mul_3(self.A, self.P_k_1_p, self.A_t) + self.mul_3(self.L, self.Q, self.L_t)
         self.P_k_1_p = P_k_p
 
     def correct(self):
         # TODO: continue implementing this function
-        (self.I - mul(self.K, self.C))
+        # TODO: this function should be able to handle asynchronous updates
+        # K_c = P_k_1_p * C.T * (C * P_k_1_p* C.T + R)^-1
+        K_c = mul_3(self.P_k_1_p, self.C.T, inv(mul_3(self.C, self.P_k_1_p,) + ))
+
+        M_1 = (self.I - mul(self.K, self.C))  # var to avoid multiple matrix multiplications
+        P_k_c = mul(M_1, mul(self.P_k_l_p, M_1.T)) + mul(self.K, mul(self.R * self.K.T))  # covariance correction
 
 
         self.X_k_1_p = X_k_c  # updating var with corrected value
         self.P_k_1_p = P_k_c  # updating var with corrected value
+
+    def mul_3(self, m1, m2, m3):
+        return mul(m1, mul(m2, m3))
 
 class EKF(KF):
     def __init__(self, input_system):
