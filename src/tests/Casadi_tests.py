@@ -111,21 +111,49 @@ class TestCasADi(unittest.TestCase):
 
     def test_vector_size_2(self):
         self.assertTrue(self.sym_vector_1_4.shape, (1, 4))
-    #
-    # def test_vector_multiplication_4_1_mul_1_4(self):
-    #     self.failUnless(False)
-    #
-    # def test_vector_multiplication_4_1_mul_4_1(self):
-    #     self.failUnless(False)
-    #
-    # def test_matrix_multiplication_4_4_mul_4_4(self):
-    #     self.failUnless(False)
-    #
-    # def test_SXFunction_evaluate(self):
-    #     self.failUnless(False)
-    #
-    # def test_SXobj_evaluate(self):
-    #     self.failUnless(False)
+
+    def test_vector_multiplication_4_1_mul_1_4_size(self):
+        result = mul(self.sym_vector_4_1, self.sym_vector_1_4)
+        self.assertEqual(result.shape, (4,4))
+
+    def test_vector_multiplication_4_1_mul_1_4_value(self):
+        result = mul(self.sym_vector_4_1, self.sym_vector_1_4)
+        result_func = SXFunction("f", [self.sym_vector_4_1, self.sym_vector_1_4], [result])
+        result_num = result_func([self.ones_array*self.scalar, self.ones_array.transpose()])[-1].toArray()
+        check = result_num == self.ones_matrix*self.scalar
+        self.assertTrue(check.all())
+
+    def test_vector_multiplication_4_1_mul_4_1(self):
+        try:
+            result = mul(self.sym_vector_4_1, self.sym_vector_4_1)
+        except Exception as e:
+            self.assertEqual(e.__class__.__name__, "RuntimeError")
+
+    def test_matrix_multiplication_4_4_mul_4_4_value(self):
+        result = mul(self.sym_matrix_4_4, self.sym_matrix_4_4_2)
+        result_func = SXFunction("f", [self.sym_matrix_4_4, self.sym_matrix_4_4_2], [result])
+        result_num = result_func([self.ones_matrix, self.ones_matrix])[-1].toArray()
+        check = result_num == self.ones_matrix*self.ones_matrix.shape[0]
+        # print self.sym_matrix_4_4 * self.sym_matrix_4_4_2  # element wise multiplication
+        self.assertTrue(check.all())
+
+    def test_matrix_multiplication_4_4_mul_4_4_value(self):
+        result = mul(self.sym_matrix_4_4, self.sym_matrix_4_4_2)
+        self.assertEqual(result.shape, (4, 4))
+
+    def test_SXFunction_evaluate(self):
+        result = mul(self.sym_matrix_4_4, self.sym_matrix_4_4_2)
+        result_func = SXFunction("f", [self.sym_matrix_4_4, self.sym_matrix_4_4_2], [result])
+        result_num = result_func([self.ones_matrix, self.ones_matrix])[-1].toArray()
+        check = result_num == self.ones_matrix*self.ones_matrix.shape[0]
+        self.assertTrue(check.all())
+
+    def test_SXobj_evaluate(self):
+        result = mul(self.sym_matrix_4_4, self.sym_matrix_4_4_2)
+        result_sub = substitute(result, vertcat([self.sym_matrix_4_4, self.sym_matrix_4_4_2]), vertcat([self.matrix_one_4_4, self.matrix_one_4_4]))
+        # SX.
+        print(result_sub)
+        self.failUnless(True)
 
 if __name__ == '__main__':
     # unittest.main()
