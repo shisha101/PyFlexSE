@@ -26,7 +26,8 @@ class KF:
     # up evaluation what remains is then the substitution (evaluation)
     # TODO: add some constant calculations during the initialization of the
     # class to save repetitive calculations of static matrices
-    def __init__(self, input_system):
+    # TODO: add unit-tests for this class
+    def __init__(self, input_system, initial_estimate_cov = None):
         self.system = input_system
         # system
         self.A = None
@@ -42,8 +43,8 @@ class KF:
         self.X = None
 
         # outputs
-        self.X_k_1_c = None # the most recent correction value
-        self.X_k_1_p = None# this will be the most uptodate estimate (after correction or duing prediction) correction
+        self.X_k_1_c = None  # the most recent correction value
+        self.X_k_1_p = None  # this will be the most uptodate estimate (after correction or duing prediction) correction
         # will over write this value to keep it uptodate for the next prediction
         self.P_k_1_c = None  # the most recent correction value (only values of corrected covariances)
         self.P_k_1_p = None  # this will be the most uptodate estimate (after correction or duing prediction) correction
@@ -65,20 +66,24 @@ class KF:
         P_k_p = self.mul_3(self.A, self.P_k_1_p, self.A_t) + self.mul_3(self.L, self.Q, self.L_t)
         self.P_k_1_p = P_k_p
 
-    def correct(self):
+    def correct(self, system_output):
         # TODO: continue implementing this function
         # TODO: this function should be able to handle asynchronous updates
         # K_c = P_k_1_p * C.T * (C * P_k_1_p* C.T + R)^-1
-        K_c = mul_3(self.P_k_1_p, self.C.T, inv(mul_3(self.C, self.P_k_1_p,) + ))
+        K_c = self.mul_3(self.P_k_1_p, self.C.T, inv(self.mul_3(self.C, self.P_k_1_p,self.C.T) + self.R))
+        # X_k_c = x_k_1_p + K_k * (Y_k - C_k * x_k_1_p) where here X_k_1_p is our last estimate,
+        # which must be a prediction since we predict before we correct
+        X_k_c = self.X_k_1_p + mul(K_c, (system_output - mul(self.C, self.X_k_1_p)))
 
+        # P_k_c = (I - K_k * C_k) * P_k_1 * (I - K_k * C_k).T + K_k * R_k * K_k.T
         M_1 = (self.I - mul(self.K, self.C))  # var to avoid multiple matrix multiplications
-        P_k_c = mul(M_1, mul(self.P_k_l_p, M_1.T)) + mul(self.K, mul(self.R * self.K.T))  # covariance correction
-
+        P_k_c = self.mul(M_1, self.P_k_l_p, M_1.T) + self.mul_3(self.K, self.R, self.K.T)  # covariance correction
 
         self.X_k_1_p = X_k_c  # updating var with corrected value
         self.P_k_1_p = P_k_c  # updating var with corrected value
 
     def mul_3(self, m1, m2, m3):
+        # TODO: create unit test for this function
         return mul(m1, mul(m2, m3))
 
 class EKF(KF):
