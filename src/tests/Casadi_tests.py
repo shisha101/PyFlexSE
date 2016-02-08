@@ -149,10 +149,13 @@ class TestCasADi(unittest.TestCase):
         self.assertTrue(check.all())
 
     def test_SXobj_evaluate(self):
-        result = mul(self.sym_matrix_4_4, self.sym_matrix_4_4_2)
-        result_sub = substitute(result, vertcat([self.sym_matrix_4_4, self.sym_matrix_4_4_2]), vertcat([self.matrix_one_4_4, self.matrix_one_4_4]))
-        # SX.
-        print(result_sub)
+        result = mul(self.sym_matrix_4_4, self.sym_matrix_4_4_2)  # multiplication
+        result_sub = substitute(result, vertcat([self.sym_matrix_4_4]), vertcat([self.matrix_one_4_4]))  # subs
+        # creating function from exp that was substituted in
+        result_func = SXFunction("f", [self.sym_matrix_4_4_2], [result_sub])
+        result_num = result_func([self.matrix_one_4_4])[-1].toArray()
+        check = result_num == self.ones_matrix*self.ones_matrix.shape[0]
+        self.assertTrue(check.all())
         self.failUnless(True)
 
 if __name__ == '__main__':
