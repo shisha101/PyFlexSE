@@ -107,6 +107,125 @@ class DiscreteKF(KF):
         self.K = K_c
 
 
+class HybridEKF(KF):
+    """
+    The Hybrid EKF deals with systems that are governed by continues dynamics but the outputs are measured discretely
+    The Hybrid simulates the model during prediction steps (integrates the systems equations),
+    and propagates the estimate covariance also via integration
+    The correction step for both the states and the covariance is then done in discrete time
+
+    for the EKF to fully function it needs, the systems current input, the last estimated state,
+    the system cov, the sensor cov, the most recent output during the correction phase, and the system equations
+    """
+    # TODO: re-evaluate integrator if time step for integration changes
+    # TODO: function for matrix re-evaluation
+    # TODO: function for X_dot
+    # TODO: function for P_dot
+    # TODO: initial state (where should it come from, system ? or KF) -> KF
+    # TODO: join P_dot to X_dot Integrator to create a single integrator
+    # TODO: initial P_dot if not supplied
+    """
+        fin = controldaeIn(t=self.t_sym, x=self.state, p=self.p_sym, u=self.inputs)
+        X_dot_function = SXFunction('f', fin, daeOut(ode=self.X_dot))
+        I_options = {}
+        I_options["t0"] = 0
+        I_options["tf"] = 50
+        I_options["integrator"] = "cvodes"
+        csim = ControlSimulator("f", X_dot_function, I_options)
+    """
+    def __init__(self, input_system):
+        KF.__init__(self, input_system)
+
+        self.integ_ts = 0.2  # time step used for integration
+        self.solver_integ = "cvodes"
+
+        # symbolic variables
+        self.P_sym = SX.sym("p", self.ns, self.ns)  # nxn symbolic matrix
+        self.t_sym = SX.sym("t")  # symbolic time
+        self.A_sym = None
+
+        # functions
+        self.cov_estimate_func = None
+
+        # integrators
+        self.system_integrator = None
+        self.estimate_cov_integrator = None
+
+    def create_p_dot_function(self):
+        P_dot = mul(self.A_sym, self.P_k_1_p) + mul(self.P_k_1_p, self.A_sym.T) + self.Q # TODO: generalize to L * Q * L.T
+        f_in = daeIn(x=self.P_sym, p=self.A_sym, t=self.t_sym)  # Q is considered a constant
+        f_out = daeOut(ode=P_dot)
+        self.cov_estimate_func = SXFunction("estimate_cov_function", f_in, f_out)
+
+    def create_integrators(self):
+        # Integrator("name", solver, function, optionsDict)
+        sys_integ_opt = {}
+        # TODO: change the constant time step to maybe use seconds from start of estimation
+        sys_integ_opt["t0"] = 0.0
+        sys_integ_opt["tf"] = self.integ_ts
+        self.system_integrator = Integrator("state integrator", self.solver_integ, self.system.X_dot_func,
+                                            sys_integ_opt)
+        self.estimate_cov_integrator = Integrator("state covariance integrator", self.solver_integ,
+                                                  self.cov_estimate_func, sys_integ_opt)
+
+    def prediction(self, system_input):
+        self.update_prediction_matrices()  # the A matrix
+        # TODO: note the Q matrix is not Q tilde yet assuming that L is I
+        # integrate the covariance
+        self.estimate_cov_integrator.setInput(self.P_k_1_p, "x0")
+        self.estimate_cov_integrator.setInput(self.A, "p")
+        self.estimate_cov_integrator.evaluate()
+        print self.estimate_cov_integrator.getOutput()
+
+        # TODO: add the var update
+
+        # integrate the states
+        self.system_integrator.setInput(self.X_k_1_p, "x0")
+        self.system_integrator.setInput(vertcat(system_input, self.system.p_num), "p")
+        self.system_integrator.evaluate()
+        print self.system_integrator.getOutput()
+        # TODO: add the var update
+
+    def correction(self, system_output):
+        self.update_correction_matrices()  # the C matrix evaluation
+        # TODO: note the R matrix is not R tilde yet assuming that M is I
+
+        # correction gain calculation
+        # K_c = P_k_1_p * C.T * (C * P_k_1_p* C.T + R)^-1
+        K_c = self.mul_3(self.P_k_1_p, self.C.T, inv(self.mul_3(self.C, self.P_k_1_p,self.C.T) + self.R))
+
+        # state correction
+        estimated_output = self.get_estimated_output()
+        # X_k_c = x_k_1_p + K_k * (Y_k - h(x_k_1, 0, t_k)) where here X_k_1_p is our last estimate,
+        # which must be a prediction since we predict before we correct
+        X_k_c = self.X_k_1_p + mul(K_c, (system_output - estimated_output))
+
+        # covariance correction
+        # P_k_c = (I - K_k * C_k) * P_k_1 * (I - K_k * C_k).T + K_k * R_k * K_k.T
+        M_1 = (self.I - mul(K_c, self.C))  # var to avoid multiple matrix multiplications
+        P_k_c = self.mul(M_1, self.P_k_l_p, M_1.T) + self.mul_3(K_c, self.R, K_c.T)  # covariance correction
+
+        self.P_k_1_c = P_k_c
+        self.P_k_1_p = P_k_c
+        self.X_k_1_c = X_k_c
+        self.X_k_1_p = X_k_c
+        self.K = K_c
+
+    def update_prediction_matrices(self):
+        # the A matrix must be evaluated and the L matrix the L matrix for later
+        pass
+
+    def update_correction_matrices(self):
+        # the C matrix amd the M matrix the M matrix for later
+        pass
+
+    def get_estimated_output(self):
+        pass
+
+    def update_EKF(self):
+        pass
+
+
 class UKF(KF):
     def __init__(self, input_system):
         KF.__init__(self, input_system)
