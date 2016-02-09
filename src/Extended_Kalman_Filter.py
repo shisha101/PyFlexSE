@@ -1,11 +1,50 @@
 import numpy as np
 from casadi import *
-from robot_model_1 import SystemModel, RobotModel3D, RobotModel2D  # this is just for trial
+from robot_model_1 import RobotModel3D  # this is just for trial
 rob = RobotModel3D(1.5, 0.33)  # global for coding help
 
 class KF:
     """
-    implementation if Discreet time Kalman filter
+    Base class for the Kalman filters containing the class variables which will be inherited by all other
+    KF implementations
+    """
+    def __init__(self, input_system):
+        self.system = input_system
+        # system (numeric)
+        self.A = None
+        self.B = None
+        self.C = None
+        self.L = None
+        self.Q = None  # sys cov
+        self.R = None  # measurement cov
+
+        # additional
+        self.A_t = None   # A transpose to reduce computational costs
+        self.L_t = None   # A transpose to reduce computational costs
+        self.X = None
+        # system dimensions
+        self.ns = self.system.state[0]  # number of states
+        self.no = self.system.outputs[0]  # number of outputs
+        self.ni = self.system.inputs[0]  # number of inputs
+
+        # outputs
+        self.X_k_1_c = None  # the most recent correction value
+        self.X_k_1_p = None  # this will be the most updated estimate (after correction or duing prediction) correction
+        # will over write this value to keep it updated for the next prediction
+        self.P_k_1_c = None  # the most recent correction value (only values of corrected covariances)
+        self.P_k_1_p = None  # this will be the most updated estimate (after correction or duing prediction) correction
+        # will over write this value to keep it updated for the next prediction
+        self.K = None  # the Kalman filter Gain
+        self.I = None  # implement an Identity matrix here instead of creating a new one every iteration
+
+    def mul_3(self, m1, m2, m3):
+        # TODO: create unit test for this function
+        return mul(m1, mul(m2, m3))
+
+
+class DiscreteKF(KF):
+    """
+    implementation of Discreet time Kalman filter
     all notations here are assumed to be in hat as in expected x_dot really means x_dot_hat
     x_dot_k_1_c = x_dot @ time k-1(k_1) corrected(_c)
     x_dot_k_p = x_dot @ time k
@@ -27,30 +66,14 @@ class KF:
     # TODO: add some constant calculations during the initialization of the
     # class to save repetitive calculations of static matrices
     # TODO: add unit-tests for this class
-    def __init__(self, input_system, initial_estimate_cov = None):
-        self.system = input_system
-        # system
-        self.A = None
-        self.B = None
-        self.C = None
-        self.L = None
-        self.Q = None  # sys cov
-        self.R = None  # measurement cov
+    def __init__(self, input_system, initial_estimate_cov=None):
+        KF.__init__(self, input_system)
+        self.init_system(initial_estimate_cov)
 
-        # additional
-        self.A_t = None   # A transpose to reduce computational costs
-        self.L_t = None   # A transpose to reduce computational costs
-        self.X = None
+    def init_system(self, initial_estimate_cov):
 
-        # outputs
-        self.X_k_1_c = None  # the most recent correction value
-        self.X_k_1_p = None  # this will be the most uptodate estimate (after correction or duing prediction) correction
-        # will over write this value to keep it uptodate for the next prediction
-        self.P_k_1_c = None  # the most recent correction value (only values of corrected covariances)
-        self.P_k_1_p = None  # this will be the most uptodate estimate (after correction or duing prediction) correction
-        # will over write this value to keep it uptodate for the next prediction
-        self.K = None  # the Kalman filter Gain
-        self.I = None  # implement an Identity matrix here instead of creating a new one every iteration
+        if initial_estimate_cov is None:
+            self.P_k_1_c = 0  # needs to be changed
 
     def predict(self, system_input):
         # all in hat,x_hat (expected)
@@ -76,24 +99,13 @@ class KF:
         X_k_c = self.X_k_1_p + mul(K_c, (system_output - mul(self.C, self.X_k_1_p)))
 
         # P_k_c = (I - K_k * C_k) * P_k_1 * (I - K_k * C_k).T + K_k * R_k * K_k.T
-        M_1 = (self.I - mul(self.K, self.C))  # var to avoid multiple matrix multiplications
-        P_k_c = self.mul(M_1, self.P_k_l_p, M_1.T) + self.mul_3(self.K, self.R, self.K.T)  # covariance correction
+        M_1 = (self.I - mul(K_c, self.C))  # var to avoid multiple matrix multiplications
+        P_k_c = self.mul(M_1, self.P_k_l_p, M_1.T) + self.mul_3(K_c, self.R, self.K.T)  # covariance correction
 
         self.X_k_1_p = X_k_c  # updating var with corrected value
         self.P_k_1_p = P_k_c  # updating var with corrected value
+        self.K = K_c
 
-    def mul_3(self, m1, m2, m3):
-        # TODO: create unit test for this function
-        return mul(m1, mul(m2, m3))
-
-class EKF(KF):
-    def __init__(self, input_system):
-        KF.__init__(self, input_system)
-        # calculate derevatives
-        # do other things
-
-    def update_EKF(self):
-        x = 0
 
 class UKF(KF):
     def __init__(self, input_system):
@@ -101,4 +113,4 @@ class UKF(KF):
 
     def pick_sigma_points(self):
         # function
-        x = 0
+        pass
