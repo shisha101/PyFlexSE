@@ -29,7 +29,7 @@ class KF:
         else:
             self.Q = Qin  # sys cov
         if Rin is None:
-            print "WARNING: The Kalman filter's measurment covariance has not been initialized, system will use I"
+            print "WARNING: The Kalman filter's measurement covariance has not been initialized, system will use I"
             self.R = np.eye(self.no)
         else:
             self.R = Rin  # measurement cov
@@ -75,7 +75,7 @@ class DiscreteKF(KF):
 
     we assume the system has the following form:
     X_k = A_k_1 * X_k_1 + B_k_1 * U_k_1 + L_k_1 * W_k_1
-    Note that for the matrix multiplying the gausian noise vector could also be written as
+    Note that for the matrix multiplying the gaussian noise vector could also be written as
     L_k_1 * W_k_1 -> L_k_1 * W_k_1 * L_k_1.T which we then name W_k_1 (tilde)
 
     in essence this can all be written with 1 P and one X vector, but to be able to debug and produce good plots,

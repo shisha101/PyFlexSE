@@ -21,6 +21,10 @@ class SystemModel:
         self.jac_X_dot_wrt_p = None  # Joacobian with respect to parameters(all (inputs + system parameters))
         self.jac_X_dot_complete = None  # Jacobian with respect to all states and parameters as well as time
 
+        self.output_SX = None  # expression (SX) for output equation  #TODO: factor in the SX for nonlinear output if it is non we will assume that C is Identity
+        self.output_func = None  # CasADi (SXFunction) for the output
+        self.jac_output_wrt_x = None  # jacobian of output function wrt states
+
         # not being used yet
         # self.system_equations = None  # the concatination of the state transition equations and the output equations
         # self.output_eq = None
