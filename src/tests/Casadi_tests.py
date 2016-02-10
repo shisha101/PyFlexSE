@@ -158,7 +158,74 @@ class TestCasADi(unittest.TestCase):
         self.assertTrue(check.all())
         self.failUnless(True)
 
+
+class test_jacobians_CasADi(unittest.TestCase):
+    def setUp(self):
+        self.A = SX.sym("a", 3, 3)
+        self.X = SX.sym("x", 3, 1)
+        self.ones_array = np.ones((3, 1))
+        self.ones_matrix = np.ones((3, 3))
+        self.SXobj_mat_mul_vec = mul(self.A, self.X)
+        # manual jacobian and evaluation of A * x for A and x all having elements of 1
+        self.full_jacobian_check_matrix = np.array([[1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1],
+                                                   [0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1],
+                                                   [0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1]])
+
+        self.SXfunc_mat_mul_vec = SXFunction("mat_mul_vector", [self.A, self.X], [self.SXobj_mat_mul_vec],
+                                             {"input_scheme": ["A", "X"], "output_scheme": ['out']})
+
+    # def print_results(self):
+    #     print " \n the type of the SXobj is %s and the contents are %s" % \
+    #           (type(self.SXobj_mat_mul_vec), self.SXobj_mat_mul_vec)
+    #     print "the number of inputs are %s, the number of outputs are %s" % \
+    #           (self.SXfunc_mat_mul_vec.nIn(), self.SXfunc_mat_mul_vec.nOut())
+    #     print "the function inputs are %s, the function outputs are %s and the output expression is \n %s" % \
+    #           (self.SXfunc_mat_mul_vec.inputScheme(), self.SXfunc_mat_mul_vec.outputScheme(),
+    #            self.SXfunc_mat_mul_vec.outputExpr())
+    #     print "using fullJacobian we get the type %s" % (type(self.SXfunc_mat_mul_vec.fullJacobian()))
+    #     print "using jacobian we get the type %s" % (type(self.SXfunc_mat_mul_vec.jacobian()))
+    #     print "using jac we get the type %s" % (type(self.SXfunc_mat_mul_vec.jac()))
+    #     self.SXfunc_mat_mul_vec.printDimensions()
+    #     print "*******************"
+    #     print self.SXfunc_mat_mul_vec
+    #     self.SXfunc_mat_mul_vec.printDimensions()  # get the functions Dimensions and variable names
+    #     print self.SXfunc_mat_mul_vec.outputExpr()  # get the output expression in readable format
+    #     print "*******************"
+    #     self.assertTrue(True)
+
+    def test_SXFunction_jacobian_complete(self):
+        full_func_jacob = self.SXfunc_mat_mul_vec.fullJacobian()
+        # full_func_jacob.printDimensions()
+        # returns dict because dict was used for calling
+        result = full_func_jacob({"A": self.ones_matrix, "X": self.ones_array})["jac"].toArray()
+        check = result == self.full_jacobian_check_matrix
+        # print check
+        self.assertTrue(check.all())
+
+    def test_SXobj_jacobian_complete(self):
+        full_jacobian = jacobian(self.SXobj_mat_mul_vec, horzcat([self.A, self.X]))
+        func_for_eval = SXFunction("f", [self.A, self.X], [full_jacobian])
+        result = func_for_eval([self.ones_matrix, self.ones_array])[-1].toArray()
+        check = result == self.full_jacobian_check_matrix
+        self.assertTrue(check.all())
+
+    def test_SXFunction_jacobian_wrt_one_var_1(self):
+        jac_wrt_A = self.SXfunc_mat_mul_vec.jacobian("A")
+        result = jac_wrt_A([self.ones_matrix, self.ones_array])[0].toArray()
+        check = result == self.full_jacobian_check_matrix[0:3, 0:9]
+        # jac_wrt_A.printDimensions()
+        self.assertTrue(check.all())
+
+    def test_SXFunction_jacobian_wrt_one_var_2(self):
+        jac_wrt_X = self.SXfunc_mat_mul_vec.jacobian("X")
+        result = jac_wrt_X([self.ones_matrix, self.ones_array])[0].toArray()
+        check = result == self.full_jacobian_check_matrix[0:3, 9::]
+        # jac_wrt_A.printDimensions()
+        self.assertTrue(check.all())
+
 if __name__ == '__main__':
     # unittest.main()
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestCasADi)
-    unittest.TextTestRunner(verbosity=2).run(suite)
+    suite_casadi = unittest.TestLoader().loadTestsFromTestCase(TestCasADi)
+    unittest.TextTestRunner(verbosity=2).run(suite_casadi)
+    suite_casadi_jac = unittest.TestLoader().loadTestsFromTestCase(test_jacobians_CasADi)
+    unittest.TextTestRunner(verbosity=2).run(suite_casadi_jac)
