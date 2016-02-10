@@ -11,11 +11,14 @@ class TestCasADi(unittest.TestCase):
         self.sym_matrix_4_4 = SX.sym("m", 4, 4)
         self.sym_matrix_4_4_2 = SX.sym("m", 4, 4)
         self.sym_vector_1_4 = SX.sym("v", 1, 4)
-        self.matrix_one_4_4 = DMatrix(np.array([[1., 1., 1., 1.], [1., 1., 1., 1.], [1., 1., 1., 1.], [1., 1., 1., 1.]]))
+        self.matrix_one_4_4 = DMatrix(np.array([[1., 1., 1., 1.],
+                                                [1., 1., 1., 1.],
+                                                [1., 1., 1., 1.],
+                                                [1., 1., 1., 1.]]))
         self.I = SX.eye(4)
         self.scalar = 1.0
         self.ones_array = np.ones((4, 1))
-        self.ones_matrix = np.ones((4,4))
+        self.ones_matrix = np.ones((4, 4))
 
     def test_that_tests_work(self):
         self.failUnless(True)
@@ -35,7 +38,8 @@ class TestCasADi(unittest.TestCase):
         self.failUnless(check.all() == True)
 
     def test_SXFunction_substitute(self):
-        result_funciton = SXFunction("f", [self.sym_vector_4_1], [vertcat([1.0, 1.0, 1.0, 1.0])])  # np array needed to get rid of Dmatrix
+        result_funciton = SXFunction("f", [self.sym_vector_4_1], [vertcat([1.0, 1.0, 1.0, 1.0])])
+        # np array needed to get rid of Dmatrix
         result_funciton_out = result_funciton([vertcat([1.0, 1.0, 1.0, 1.0])])[-1].toArray()
         check = self.ones_array.transpose() == result_funciton_out
         self.failUnless(check.all() == True)
@@ -114,7 +118,7 @@ class TestCasADi(unittest.TestCase):
 
     def test_vector_multiplication_4_1_mul_1_4_size(self):
         result = mul(self.sym_vector_4_1, self.sym_vector_1_4)
-        self.assertEqual(result.shape, (4,4))
+        self.assertEqual(result.shape, (4, 4))
 
     def test_vector_multiplication_4_1_mul_1_4_value(self):
         result = mul(self.sym_vector_4_1, self.sym_vector_1_4)
@@ -137,7 +141,7 @@ class TestCasADi(unittest.TestCase):
         # print self.sym_matrix_4_4 * self.sym_matrix_4_4_2  # element wise multiplication
         self.assertTrue(check.all())
 
-    def test_matrix_multiplication_4_4_mul_4_4_value(self):
+    def test_matrix_multiplication_4_4_mul_4_4_shape(self):
         result = mul(self.sym_matrix_4_4, self.sym_matrix_4_4_2)
         self.assertEqual(result.shape, (4, 4))
 
@@ -159,7 +163,7 @@ class TestCasADi(unittest.TestCase):
         self.failUnless(True)
 
 
-class test_jacobians_CasADi(unittest.TestCase):
+class TestJacobiansCasADi(unittest.TestCase):
     def setUp(self):
         self.A = SX.sym("a", 3, 3)
         self.X = SX.sym("x", 3, 1)
@@ -227,5 +231,5 @@ if __name__ == '__main__':
     # unittest.main()
     suite_casadi = unittest.TestLoader().loadTestsFromTestCase(TestCasADi)
     unittest.TextTestRunner(verbosity=2).run(suite_casadi)
-    suite_casadi_jac = unittest.TestLoader().loadTestsFromTestCase(test_jacobians_CasADi)
+    suite_casadi_jac = unittest.TestLoader().loadTestsFromTestCase(TestJacobiansCasADi)
     unittest.TextTestRunner(verbosity=2).run(suite_casadi_jac)
