@@ -3,6 +3,7 @@ from casadi import *
 from robot_model_1 import RobotModel3D  # this is just for trial
 rob = RobotModel3D(1.5, 0.33)  # global for coding help
 
+
 class KF:
     """
     Base class for the Kalman filters containing the class variables which will be inherited by all other
@@ -55,8 +56,10 @@ class KF:
         if P0 is None:
             if self.system.init_estimate_cov is None:
                 print "WARNING: The Kalman filter's initial covariance has not been initialized, system will use I"
-                self.P_k_1_c = np.eye(self.ns)  # the most recent correction value (only values of corrected covariances)
-                self.P_k_1_p = np.eye(self.ns)  # this will be the most updated estimate (after correction or duing prediction)
+                self.P_k_1_c = np.eye(self.ns)  # the most recent correction value
+                # (only values of corrected covariances)
+                self.P_k_1_p = np.eye(self.ns)  # this will be the most updated estimate
+                # (after correction or duing prediction)
                 # correction will over write this value to keep it updated for the next prediction
             else:
                 self.P_k_1_c = self.system.init_estimate_cov
@@ -99,7 +102,7 @@ class DiscreteKF(KF):
     # class to save repetitive calculations of static matrices
     # TODO: add unit-tests for this class
     def __init__(self, input_system, X0=None, Qin=None, Rin=None, P0=None):
-        KF.__init__(self, input_system, X0,Qin, Rin, P0)
+        KF.__init__(self, input_system, X0, Qin, Rin, P0)
 
     def predict(self, system_input):
         # all in hat,x_hat (expected)
@@ -191,7 +194,6 @@ class HybridEKF(KF):
         # not being used yet
         self.M_func = None
 
-
         # functions
         self.cov_estimate_func = None
 
@@ -281,9 +283,9 @@ class HybridEKF(KF):
         """
         # the C matrix amd the M matrix the M matrix for later
         if self.C_func is not None:  # meaning we have a non linear output function
-            if system_input is not None: # the system output equations depends on u y = h(x,u,v)
+            if system_input is not None:  # the system output equations depends on u y = h(x,u,v)
                 C_matrix_linearized = self.C_func({{"x": self.X_k_1_p,
-                                                    "p": np.append([system_input, self.system.p_num]),
+                                                    "p": np.append(system_input, self.system.p_num),
                                                     "t": self.t}})
             else:
                 C_matrix_linearized = self.C_func({{"x": self.X_k_1_p,
