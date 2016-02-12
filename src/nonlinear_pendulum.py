@@ -47,6 +47,7 @@ class PendulumSystem(SystemModel):
         self.X_dot_func = SXFunction('f', daeIn(x=self.state, p=vertcat([self.inputs, self.p_sym]), t=self.t_sym),
                                      daeOut(ode=self.X_dot))
 
+
 def plot_2d(x, y, fig_nr):
     fig = plt.figure(fig_nr, figsize=(8, 8))
 
@@ -74,6 +75,7 @@ def plot_2d(x, y, fig_nr):
 
     fig.tight_layout()
     fig.show()
+
 
 def plot_sim_vs_estim(x, y1, y2, fig_nr, y3=None):
     fig = plt.figure(fig_nr, figsize=(8, 8))
@@ -115,17 +117,15 @@ def main():
     delta_t = 0.05
     t_end = 5.0
 
-    model_trust_factor = 0.05  # how much do we trust our model compared to our measurements affects the Q and R matrices
-    initial_state_trust_factor = 0.001
-    initial_state_pre_multiplication_factor = -1.0
-    t_steps_between_measurements = 20
+    model_trust_factor = 0.05  # how much do we trust our model compared to our measurements affects Q and R matrices
+    initial_state_trust_factor = 0.001  # how much we trust our initial estimate P0
+    initial_state_pre_multiplication_factor = -1.0  # affects the starting state of the estimator X0
+    t_steps_between_measurements = 20  # how frequently do we get a measurement
 
     t = np.arange(t_start, t_end, delta_t)  # the end+delta_t is becasue the sim saves the initial sate
     start_state = np.array([[-20.0/180.0*np.pi], [0.0]])  # -20 degrees, zero omega
     pendulum = PendulumSystem(mass, length, damping_factor)
-    opt = {}
-    opt["t0"] = t_start
-    opt["tf"] = delta_t
+    opt = {"t0": t_start, "tf": delta_t}
     # non time varying system constant delta t with t0 = 0
     system_integrator = Integrator("real_pendulum_integrator", "cvodes", pendulum.X_dot_func, opt)
     print start_state.shape
@@ -181,6 +181,3 @@ if __name__ == '__main__':
     raw_input("press to exit")
     # print system_simulator.getOutput().toArray().T
     # print t
-
-
-
