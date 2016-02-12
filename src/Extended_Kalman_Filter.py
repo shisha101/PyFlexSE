@@ -13,9 +13,9 @@ class KF:
         self.system = input_system
 
         # system dimensions
-        self.ns = self.system.state[0]  # number of states
-        self.no = self.system.outputs[0]  # number of outputs
-        self.ni = self.system.inputs[0]  # number of inputs
+        self.ns = self.system.state.shape[0]  # number of states
+        self.no = self.system.outputs.shape[0]  # number of outputs
+        self.ni = self.system.inputs.shape[0]  # number of inputs
 
         # system (numeric)
         self.A = None
@@ -87,7 +87,7 @@ class DiscreteKF(KF):
     # class to save repetitive calculations of static matrices
     # TODO: add unit-tests for this class
     def __init__(self, input_system, X0=None, Qin=None, Rin=None, P0=None):
-        KF.__init__(self, input_system, X0=None,Qin=None, Rin=None, P0=None)
+        KF.__init__(self, input_system, X0,Qin, Rin, P0)
 
     def predict(self, system_input):
         # all in hat,x_hat (expected)
@@ -147,10 +147,10 @@ class HybridEKF(KF):
         I_options["integrator"] = "cvodes"
         csim = ControlSimulator("f", X_dot_function, I_options)
     """
-    def __init__(self, input_system, X0=None, Qin=None, Rin=None, P0=None):
-        KF.__init__(self, input_system, X0=None, Qin=None, Rin=None, P0=None)
+    def __init__(self, input_system, integrator_time_step, X0=None, Qin=None, Rin=None, P0=None):
+        KF.__init__(self, input_system, X0, Qin, Rin, P0)
 
-        self.integ_ts = 0.2  # time step used for integration
+        self.integ_ts = integrator_time_step  # time step used for integration
         self.solver_integ = "cvodes"
 
         # symbolic variables
@@ -169,7 +169,7 @@ class HybridEKF(KF):
         # not being used yet
         self.L_func = None
 
-        if self.system.output_output_SX is None:  # no output equations specified assume Identity
+        if self.system.output_SX is None:  # no output equations specified assume Identity
             self.C = np.eye(self.ni)  # HACK
         else:
             self.C_func = self.system.jac_output_wrt_x
@@ -183,6 +183,9 @@ class HybridEKF(KF):
         # integrators
         self.system_integrator = None
         self.estimate_cov_integrator = None
+
+        self.create_p_dot_function()
+        self.create_integrators()
 
     def create_p_dot_function(self):
         P_dot = mul(self.A_sym, self.P_k_1_p) + mul(self.P_k_1_p, self.A_sym.T) + self.Q # TODO: generalize to L * Q * L.T and make it a parameter in the eq below
@@ -208,19 +211,20 @@ class HybridEKF(KF):
         self.estimate_cov_integrator.setInput(self.P_k_1_p, "x0")
         self.estimate_cov_integrator.setInput(self.A, "p")
         self.estimate_cov_integrator.evaluate()
-        print self.estimate_cov_integrator.getOutput()
-        print "the type of the cov output is %s, the output is %s" %\
-        (type(self.estimate_cov_integrator.getOutput()[-1]), self.estimate_cov_integrator.getOutput()[-1])
-
+        # print self.estimate_cov_integrator.getOutput()
+        # print "the type of the cov output is %s, the output is %s" %\
+        # (type(self.estimate_cov_integrator.getOutput()), self.estimate_cov_integrator.getOutput())
+        self.P_k_1_p = self.estimate_cov_integrator.getOutput()
         # TODO: add the var update
 
         # integrate the states
         self.system_integrator.setInput(self.X_k_1_p, "x0")
-        self.system_integrator.setInput(vertcat(system_input, self.system.p_num), "p")
+        self.system_integrator.setInput(np.append(system_input, self.system.p_num), "p")
         self.system_integrator.evaluate()
-        print self.system_integrator.getOutput()
-        print "the type of the system output is %s, the output is %s" %\
-        (type(self.system_integrator.getOutput()[-1]), self.system_integrator.getOutput()[-1])
+        # print self.system_integrator.getOutput()
+        # print "the type of the system output is %s, the output is %s" %\
+        # (type(self.system_integrator.getOutput()), self.system_integrator.getOutput())
+        self.X_k_1_p = self.system_integrator.getOutput()
         # TODO: add the var update
 
     def correction(self, system_output):
@@ -253,14 +257,15 @@ class HybridEKF(KF):
         A_matrix_linearized = self.A_func({"x": self.X_k_1_p,
                                            "p": vertcat([system_input, self.system.p_num]),
                                            "t": self.t})
-        self.A = A_matrix_linearized
+        self.A = A_matrix_linearized["jac"]
 
     def update_correction_matrices(self):
         # the C matrix amd the M matrix the M matrix for later
         pass
 
     def get_estimated_output(self):
-        pass
+        # HACK
+        return self.X_k_1_p
 
     def update_EKF(self):
         pass
