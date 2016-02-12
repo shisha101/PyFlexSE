@@ -75,7 +75,7 @@ def plot_2d(x, y, fig_nr):
     fig.tight_layout()
     fig.show()
 
-def plot_2d2(x, y1, y2, fig_nr, y3=None):
+def plot_sim_vs_estim(x, y1, y2, fig_nr, y3=None):
     fig = plt.figure(fig_nr, figsize=(8, 8))
 
     plot_1 = fig.add_subplot(211)
@@ -116,8 +116,8 @@ def main():
     t_end = 5.0
 
     model_trust_factor = 0.05  # how much do we trust our model compared to our measurements affects the Q and R matrices
-    inital_state_trust_factor = 0.001
-    inital_state_pre_multiplication_factor = -1.0
+    initial_state_trust_factor = 0.001
+    initial_state_pre_multiplication_factor = -1.0
     t_steps_between_measurements = 20
 
     t = np.arange(t_start, t_end, delta_t)  # the end+delta_t is becasue the sim saves the initial sate
@@ -128,28 +128,22 @@ def main():
     opt["tf"] = delta_t
     # non time varying system constant delta t with t0 = 0
     system_integrator = Integrator("real_pendulum_integrator", "cvodes", pendulum.X_dot_func, opt)
-    system_simulator = Simulator("sim", Integrator("real_pendulum_integrator", "cvodes", pendulum.X_dot_func), t)
-    system_simulator.setInput(start_state, "x0")
-    system_simulator.setInput(np.append([0.0], pendulum.p_num), "p")
-    system_simulator.evaluate()
-    system_simulation = system_simulator.getOutput().toArray().T
-    print system_simulator.getOutput().toArray().shape
     print start_state.shape
-    plot_2d(t, system_simulation, 0)
-    Hybrid_EKF = HybridEKF(pendulum, 0.05,
-                           start_state * inital_state_pre_multiplication_factor,
+    hybrid_EKF = HybridEKF(pendulum, 0.05,
+                           start_state * initial_state_pre_multiplication_factor,
                            Rin=np.eye(2),
                            Qin=(1 / model_trust_factor) * np.eye(2),
-                           P0=(1 / inital_state_trust_factor) * np.eye(2))
+                           P0=(1 / initial_state_trust_factor) * np.eye(2))
     estimated_states = []
     estimated_cov = []
     real_states = []
     current_state = deepcopy(start_state)
-    estimated_states.append(start_state * inital_state_pre_multiplication_factor)
+    estimated_states.append(start_state * initial_state_pre_multiplication_factor)
+    estimated_cov.append(np.eye(2))
     real_states.append(start_state)
-    print "the start state of the estimator is %s" % Hybrid_EKF.X_k_1_p
+    print "the start state of the estimator is %s" % hybrid_EKF.X_k_1_p
     print "the start state of the system is %s" % start_state
-    for index, time_step in enumerate(t):
+    for index, time in enumerate(xrange(t.shape[0]-1)):
 
         # integrate the system
         system_integrator.setInput(current_state, "x0")
@@ -159,25 +153,19 @@ def main():
         system_integ_output = system_integrator.getOutput().toArray()
         current_state = system_integ_output
         if index != 0 and index % t_steps_between_measurements == 0:
-            print system_simulation[index, :]
-            Hybrid_EKF.prediction(np.array([0.0]))
-            Hybrid_EKF.correction(current_state)
+            hybrid_EKF.prediction(np.array([0.0]))
+            hybrid_EKF.correction(current_state)
         else:
-            Hybrid_EKF.prediction(np.array([0.0]))
-
-        if index >= system_simulation.shape[0]-1:
-            pass
-        else:
-            print "***Start***"
-            print Hybrid_EKF.X_k_1_p.toArray().shape
-            print "EKF output is %s " % Hybrid_EKF.X_k_1_p.toArray().T
-            print "step wise system integrator output is %s" % system_integ_output.T
-            print "system simulation output is %s" % system_simulation[index+1, :]
-            print "***End***"
-        estimated_states.append(Hybrid_EKF.X_k_1_p.toArray())
+            hybrid_EKF.prediction(np.array([0.0]))
+        print "***Start***"
+        print "EKF output is %s " % hybrid_EKF.X_k_1_p.toArray().T
+        print "step wise system integrator output is %s" % system_integ_output.T
+        print "***End***"
+        estimated_states.append(hybrid_EKF.X_k_1_p.toArray())
         real_states.append(system_integ_output)
-        estimated_cov.append(Hybrid_EKF.P_k_1_p)
+        estimated_cov.append(hybrid_EKF.P_k_1_p.toArray())
     # print estimated_states
+    print estimated_cov[0]
     reformated_out = np.hstack(estimated_states)
     real_states_ref = np.hstack(real_states)
     print reformated_out.shape
@@ -185,7 +173,7 @@ def main():
     print reformated_out.T[0:t.shape[0], :].shape
     # print system_simulation[0, :]
     # print reformated_out[:, 0]
-    plot_2d2(t, real_states_ref.T[0:t.shape[0]], reformated_out.T[0:t.shape[0], :], 1)
+    plot_sim_vs_estim(t, real_states_ref.T, reformated_out.T, 1)
 
 if __name__ == '__main__':
     main()
