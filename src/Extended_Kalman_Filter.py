@@ -296,7 +296,8 @@ class HybridEKF(KF):
             pass
 
     def get_estimated_output(self):
-        # HACK
+        # Only linear case implemented
+        print "Note that only linear case in estimated output has been implemented "
         return self.X_k_1_p
 
     def update_EKF(self):
