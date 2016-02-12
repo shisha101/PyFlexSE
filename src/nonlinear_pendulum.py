@@ -38,7 +38,8 @@ class PendulumSystem(SystemModel):
         self.inputs = f
 
         # outputs
-        self.outputs = self.state
+        self.C = np.diag([1, 1])  # linear output
+        self.outputs = mul(self.C, self.state)
 
         # casadi function
         x1_dot = x[1]
@@ -140,7 +141,7 @@ def main():
 
     # EKF params
     model_trust_factor = 0.05  # how much do we trust our model compared to our measurements affects Q and R matrices
-    initial_state_trust_factor = 0.001  # how much we trust our initial estimate P0
+    initial_state_trust_factor = 0.1  # how much we trust our initial estimate P0
     initial_state_pre_multiplication_factor = -1.0  # affects the starting state of the estimator X0
 
     t = np.arange(t_start, t_end, delta_t)  # the end+delta_t is because the sim saves the initial sate
@@ -181,8 +182,10 @@ def main():
 
         # do prediction or correction
         if index != 0 and index % t_steps_between_measurements == 0:
+        # if True:  # correction with every step
+        # if False:  # pure integrator
             hybrid_EKF.prediction(np.array([0.0]))
-            hybrid_EKF.correction(real_states[-1])
+            hybrid_EKF.correction(real_states[-1], np.array([0.0]))
         else:
             hybrid_EKF.prediction(np.array([0.0]))
         # print "***Start***"
