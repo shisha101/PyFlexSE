@@ -24,13 +24,20 @@ class KF:
         self.L = None
         self.t = 0.0
         if Qin is None:
-            print "WARNING: The Kalman filter's system covariance has not been initialized, system will use I"
-            self.Q = np.eye(self.ns)
+            if self.system.system_cov is None:
+                self.Q = np.eye(self.ns)
+                print "WARNING: The Kalman filter's system covariance has not been initialized, system will use I"
+            else:
+                self.Q = self.system.system_cov
         else:
             self.Q = Qin  # sys cov
+
         if Rin is None:
-            print "WARNING: The Kalman filter's measurement covariance has not been initialized, system will use I"
-            self.R = np.eye(self.no)
+            if self.system.sensor_cov is None:
+                self.R = np.eye(self.no)
+                print "WARNING: The Kalman filter's measurement covariance has not been initialized, system will use I"
+            else:
+                self.R = self.system.sensor_cov
         else:
             self.R = Rin  # measurement cov
 
@@ -46,10 +53,14 @@ class KF:
         self.X_k_1_p = X0  # this will be the most updated estimate (after correction or duing prediction) correction
         # will over write this value to keep it updated for the next prediction
         if P0 is None:
-            print "WARNING: The Kalman filter's initial covariance has not been initialized, system will use I"
-            self.P_k_1_c = np.eye(self.ns)  # the most recent correction value (only values of corrected covariances)
-            self.P_k_1_p = np.eye(self.ns)  # this will be the most updated estimate (after correction or duing prediction)
-            # correction will over write this value to keep it updated for the next prediction
+            if self.system.init_estimate_cov is None:
+                print "WARNING: The Kalman filter's initial covariance has not been initialized, system will use I"
+                self.P_k_1_c = np.eye(self.ns)  # the most recent correction value (only values of corrected covariances)
+                self.P_k_1_p = np.eye(self.ns)  # this will be the most updated estimate (after correction or duing prediction)
+                # correction will over write this value to keep it updated for the next prediction
+            else:
+                self.P_k_1_c = self.system.init_estimate_cov
+                self.P_k_1_p = self.system.init_estimate_cov
         else:
             self.P_k_1_c = P0  # the most recent correction value (only values of corrected covariances)
             self.P_k_1_p = P0  # this will be the most updated estimate (after correction or duing prediction)
@@ -64,6 +75,7 @@ class KF:
 
 class DiscreteKF(KF):
     """
+    NOT TESTED
     implementation of Discreet time Kalman filter
     all notations here are assumed to be in hat as in expected x_dot really means x_dot_hat
     x_dot_k_1_c = x_dot @ time k-1(k_1) corrected(_c)

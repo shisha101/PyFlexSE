@@ -32,9 +32,9 @@ class SystemModel:
         # self.jac_sys_wrt_states = None
         # self.jac_sys_wrt_params = None
 
-        self.sensor_cov = []
-        self.system_cov = []
-        self.init_estimate_cov = []
+        self.sensor_cov = None  # R
+        self.system_cov = None  # Q
+        self.init_estimate_cov = None  # P0
         self.t_sym = SX.sym("t")
 
     def get_sys_eq(self):
