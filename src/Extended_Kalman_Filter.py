@@ -162,8 +162,8 @@ class HybridEKF(KF):
     def __init__(self, input_system, integrator_time_step, X0=None, Qin=None, Rin=None, P0=None):
         KF.__init__(self, input_system, X0, Qin, Rin, P0)
 
-        self.integ_ts = integrator_time_step  # time step used for integration
-        self.solver_integ = "cvodes"
+        self.integrator_ts = integrator_time_step  # time step used for integration
+        self.solver_integrator = "cvodes"
 
         # symbolic variables
         self.P_sym = SX.sym("p", self.ns, self.ns)  # nxn symbolic matrix
@@ -181,12 +181,15 @@ class HybridEKF(KF):
         # not being used yet
         self.L_func = None
 
-        if self.system.output_SX is None:  # no output equations specified assume Identity
-            self.C = np.eye(self.ni)  # HACK
-        else:
-            self.C_func = self.system.jac_output_wrt_x
-            # not being used yet
-            self.M_func = None
+        if self.system.output_SX is None:  # no non-linear output eq specified assume linear
+            print "The system given has no non linear output function, assuming a linear output. " \
+                  "Note the system being used must provide a self.C variable contianing to map x to y y = C * X"
+            self.C = self.system.C
+        elif self.system.jac_output_wrt_x is None:
+            self.system.compute_jac_output_SX()
+        self.C_func = self.system.jac_output_wrt_x  # the jacobian has not been computed for outputs yet
+        # not being used yet
+        self.M_func = None
 
 
         # functions
@@ -200,7 +203,7 @@ class HybridEKF(KF):
         self.create_integrators()
 
     def create_p_dot_function(self):
-        P_dot = mul(self.A_sym, self.P_k_1_p) + mul(self.P_k_1_p, self.A_sym.T) + self.Q # TODO: generalize to L * Q * L.T and make it a parameter in the eq below
+        P_dot = mul(self.A_sym, self.P_sym) + mul(self.P_sym, self.A_sym.T) + self.Q # TODO: generalize to L * Q * L.T and make it a parameter in the eq below
         f_in = daeIn(x=self.P_sym, p=self.A_sym, t=self.t_sym)  # Q is considered a constant
         f_out = daeOut(ode=P_dot)
         self.cov_estimate_func = SXFunction("estimate_cov_function", f_in, f_out)
@@ -210,10 +213,10 @@ class HybridEKF(KF):
         sys_integ_opt = {}
         # TODO: change the constant time step to maybe use seconds from start of estimation
         sys_integ_opt["t0"] = 0.0
-        sys_integ_opt["tf"] = self.integ_ts
-        self.system_integrator = Integrator("state integrator", self.solver_integ, self.system.X_dot_func,
+        sys_integ_opt["tf"] = self.integrator_ts
+        self.system_integrator = Integrator("state integrator", self.solver_integrator, self.system.X_dot_func,
                                             sys_integ_opt)
-        self.estimate_cov_integrator = Integrator("state covariance integrator", self.solver_integ,
+        self.estimate_cov_integrator = Integrator("state covariance integrator", self.solver_integrator,
                                                   self.cov_estimate_func, sys_integ_opt)
 
     def prediction(self, system_input):
@@ -227,7 +230,6 @@ class HybridEKF(KF):
         # print "the type of the cov output is %s, the output is %s" %\
         # (type(self.estimate_cov_integrator.getOutput()), self.estimate_cov_integrator.getOutput())
         self.P_k_1_p = self.estimate_cov_integrator.getOutput()
-        # TODO: add the var update
 
         # integrate the states
         self.system_integrator.setInput(self.X_k_1_p, "x0")
@@ -239,8 +241,8 @@ class HybridEKF(KF):
         self.X_k_1_p = self.system_integrator.getOutput()
         # TODO: add the var update
 
-    def correction(self, system_output):
-        self.update_correction_matrices()  # the C matrix evaluation
+    def correction(self, system_output, system_input=None):
+        self.update_correction_matrices(system_input)  # the C matrix evaluation
         # TODO: note the R matrix is not R tilde yet assuming that M is I
 
         # correction gain calculation
@@ -267,13 +269,29 @@ class HybridEKF(KF):
     def update_prediction_matrices(self, system_input):
         # the A matrix must be evaluated and the L matrix the L matrix for later
         A_matrix_linearized = self.A_func({"x": self.X_k_1_p,
-                                           "p": vertcat([system_input, self.system.p_num]),
+                                           "p": np.append(system_input, self.system.p_num),
                                            "t": self.t})
         self.A = A_matrix_linearized["jac"]
 
-    def update_correction_matrices(self):
+    def update_correction_matrices(self, system_input):
+        """
+         this assumes that the y = h(x, v) is actually y = h(x,u,v)
+
+         This function for the non linear case has not yet been tested
+        """
         # the C matrix amd the M matrix the M matrix for later
-        pass
+        if self.C_func is not None:  # meaning we have a non linear output function
+            if system_input is not None: # the system output equations depends on u y = h(x,u,v)
+                C_matrix_linearized = self.C_func({{"x": self.X_k_1_p,
+                                                    "p": np.append([system_input, self.system.p_num]),
+                                                    "t": self.t}})
+            else:
+                C_matrix_linearized = self.C_func({{"x": self.X_k_1_p,
+                                                    "p": self.system.p_num,
+                                                    "t": self.t}})
+            self.C = C_matrix_linearized["jac"]
+        else:  # no non linear output function, and the self.C has already been set in the init function
+            pass
 
     def get_estimated_output(self):
         # HACK
