@@ -48,12 +48,19 @@ class SystemModel:
     #         self.jac_sys_wrt_params = self.system_equations.jacobian(1)
 
     def compute_jac_Xdot(self):
-        if self.X_dot is not None:
+        if self.X_dot is not None and self.X_dot_func is not None:
             # self.jac_X_dot_complete = jacobian(
             #         self.X_dot, vertcat([self.state, self.inputs])) # SX expression wrt X and U
             self.jac_X_dot_complete = self.X_dot_func.fullJacobian()
             self.jac_X_dot_wrt_x = self.X_dot_func.jacobian("x")  # (0)
             self.jac_X_dot_wrt_p = self.X_dot_func.jacobian("p")  # (2) # x, z, p, t (the order of vars in the ode)
+
+    def compute_jac_output_SX(self):
+        """
+        This function has not been tested
+        """
+        if self.output_SX is not None and self.output_func is not None:
+            self.jac_output_wrt_x = self.output_func.jacobian("x")  # (0)
 
     # getter functions
     def get_p_numeric(self):
