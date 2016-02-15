@@ -10,7 +10,7 @@ import cProfile
 
 
 class PendulumSystem(SystemModel):
-    def __init__(self, m=1.0, l=0.5, d=0.1):
+    def __init__(self, m=1.0, l=0.5, d=0.1, linear_sys=True):
         SystemModel.__init__(self)
         # numeric vars
         # numeric constatns
@@ -38,8 +38,17 @@ class PendulumSystem(SystemModel):
         self.inputs = f
 
         # outputs
-        self.C = np.diag([1, 1])  # linear output
-        self.outputs = mul(self.C, self.state)
+        if linear_sys:
+            # linear output
+            self.C = np.diag([1, 1])
+            self.outputs = mul(self.C, self.state)
+        else:
+            # outputs non linear
+            output_x = l * cos(x[0])
+            output_y = l * sin(x[0])
+            self.outputs = vertcat([output_x, output_y])
+            self.output_func = SXFunction("output_function", daeIn(x=self.state, p=vertcat([self.p_sym]), t=self.t_sym),
+                                          daeOut(ode=self.outputs))
 
         # casadi function
         x1_dot = x[1]
@@ -64,12 +73,12 @@ def plot_2d(x, y, fig_nr):
     plot_1 = fig.add_subplot(211)
     plot_1.plot(x, y[:, 0])
     plot_1.set_xlabel("time (s)")
-    plot_1.set_ylabel("position Theta (rad)")
+    plot_1.set_ylabel("position x (m)")
 
     plot_2 = fig.add_subplot(212)
     plot_2.plot(x, y[:, 1])
     plot_2.set_xlabel("time (s)")
-    plot_2.set_ylabel("Omega (rad*s^-1)")
+    plot_2.set_ylabel("position y (m)")
 
     # plot_3 = fig.add_subplot(413)
     # mod_list_theta = map(lambda x: (x%(2*np.pi))*180/np.pi, y[:, 2])
@@ -99,14 +108,14 @@ def plot_sim_vs_estim(x, y1, y2, fig_nr, y3=None):
     plot_1.plot(x, y1[:, 0], "b-")
     plot_1.plot(x, y2[:, 0], "r--")
     plot_1.set_xlabel("time (s)")
-    plot_1.set_ylabel("position x (m)")
+    plot_1.set_ylabel("position Theta (rad)")
     plot_number += 1
 
     plot_2 = fig.add_subplot(plot_number)
     plot_2.plot(x, y1[:, 1], "b-")
     plot_2.plot(x, y2[:, 1], "r--")
     plot_2.set_xlabel("time (s)")
-    plot_2.set_ylabel("position y (m)")
+    plot_2.set_ylabel("Omega (rad*s^-1)")
     plot_number += 1
     
     if y3 is not None:
@@ -131,11 +140,12 @@ def main():
     mass = 1.0
     length = 0.5
     damping_factor = 0.05
+    linear_measurments = True
 
     # simulation params
     t_start = 0.0
     delta_t = 0.05
-    t_end = 5.0
+    t_end = 10.0
     t_steps_between_measurements = 20  # how frequently do we get a measurement
     start_state = np.array([[-20.0/180.0*np.pi], [0.0]])  # -20 degrees, zero omega
 
@@ -147,7 +157,10 @@ def main():
     t = np.arange(t_start, t_end, delta_t)  # the end+delta_t is because the sim saves the initial sate
 
     # system
-    pendulum = PendulumSystem(mass, length, damping_factor)
+    pendulum = PendulumSystem(mass, length, damping_factor, linear_measurments)
+    # system model used for EKF
+    pendulum_EKF_model = PendulumSystem(mass*1.0, length*1.0, damping_factor*1.0, linear_measurments)
+
 
     # system integrator
     opt = {"t0": t_start, "tf": delta_t}
@@ -155,7 +168,7 @@ def main():
     system_integrator = Integrator("real_pendulum_integrator", "cvodes", pendulum.X_dot_func, opt)
 
     # Hybrid EKF
-    hybrid_EKF = HybridEKF(pendulum, 0.05,
+    hybrid_EKF = HybridEKF(pendulum_EKF_model, 0.05,
                            start_state * initial_state_pre_multiplication_factor,
                            Rin=np.eye(2),
                            Qin=(1 / model_trust_factor) * np.eye(2),
@@ -164,9 +177,14 @@ def main():
     estimated_states = []
     estimated_cov = []
     real_states = []
+
     estimated_states.append(start_state * initial_state_pre_multiplication_factor)  # append state at t0
     estimated_cov.append((1 / initial_state_trust_factor) * np.eye(2))  # append cov at t0
     real_states.append(start_state)
+    # append the initial output at time 0
+    if pendulum.output_func is not None:
+        real_outputs = []
+        real_outputs.append(pendulum.output_func({"x": start_state, "p": pendulum.p_num, "t": 0})["ode"].toArray())
     print "the start state of the estimator is %s" % hybrid_EKF.X_k_1_p
     print "the start state of the system is %s" % start_state
 
@@ -179,13 +197,19 @@ def main():
         system_integrator.evaluate()
         system_integ_output = system_integrator.getOutput().toArray()
         real_states.append(system_integ_output)
+        if pendulum.output_func is not None:
+            real_outputs.append(pendulum.output_func({"x": real_states[-1], "p": pendulum.p_num, "t": 0})["ode"].toArray())
+
 
         # do prediction or correction
         if index != 0 and index % t_steps_between_measurements == 0:
         # if True:  # correction with every step
         # if False:  # pure integrator
             hybrid_EKF.prediction(np.array([0.0]))
-            hybrid_EKF.correction(real_states[-1], np.array([0.0]))
+            if pendulum.output_func is None:
+                hybrid_EKF.correction(real_states[-1])
+            else:
+                hybrid_EKF.correction(real_outputs[-1])
         else:
             hybrid_EKF.prediction(np.array([0.0]))
         # print "***Start***"
@@ -200,6 +224,9 @@ def main():
     real_states_ref = np.hstack(real_states)
     cov_values_vector = extract_cov_values(estimated_cov)
     plot_sim_vs_estim(t, real_states_ref.T, reformatted_out.T, 1, cov_values_vector)
+    if pendulum.output_func is not None:
+        real_outputs_ref = np.hstack(real_outputs)
+        plot_2d(t, real_outputs_ref.T, 2)
 
 if __name__ == '__main__':
     main()
