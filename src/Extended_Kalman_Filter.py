@@ -186,7 +186,7 @@ class HybridEKF(KF):
 
         if self.system.output_SX is None:  # no non-linear output eq specified assume linear
             print "The system given has no non linear output function, assuming a linear output. " \
-                  "Note the system being used must provide a self.C variable contianing to map x to y y = C * X"
+                  "Note the system being used must provide a self.C variable to map x to y y = C * X"
             self.C = self.system.C
         elif self.system.jac_output_wrt_x is None:
             self.system.compute_jac_output_SX()
@@ -298,7 +298,7 @@ class HybridEKF(KF):
     def get_estimated_output(self):
         # Only linear case implemented
         print "Note that only linear case in estimated output has been implemented "
-        return self.X_k_1_p
+        return mul(self.C,  self.X_k_1_p)
 
     def update_EKF(self):
         pass
