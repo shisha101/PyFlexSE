@@ -70,6 +70,7 @@ class KF:
             # correction will over write this value to keep it updated for the next prediction
         self.K = None  # the Kalman filter Gain
         self.I = np.eye(self.ns)  # implement an Identity matrix here instead of creating a new one every iteration
+        self.estimated_system_output = None  # where the estimated systems outputs are stored
 
     def mul_3(self, m1, m2, m3):
         # TODO: create unit test for this function
@@ -184,13 +185,18 @@ class HybridEKF(KF):
         # not being used yet
         self.L_func = None
 
-        if self.system.output_SX is None:  # no non-linear output eq specified assume linear
-            print "The system given has no non linear output function, assuming a linear output. " \
-                  "Note the system being used must provide a self.C variable to map x to y y = C * X"
-            self.C = self.system.C
+        if self.system.output_func is None:  # no non-linear output eq specified assume linear
+            print "The system given has no non linear output function, assuming a linear output. "
+            if self.system.C is None:
+                raw_input("The system given has no linear output nor an output function, The EKF will fail. Press"
+                          "to continue \n Note the system being used must provide "
+                          "a self.C variable to map x to y y = C * X")
+            else:
+                self.C = self.system.C
+                self.C_func = None
         elif self.system.jac_output_wrt_x is None:
-            self.system.compute_jac_output_SX()
-        self.C_func = self.system.jac_output_wrt_x  # the jacobian has not been computed for outputs yet
+            self.system.compute_jac_output_func()
+            self.C_func = self.system.jac_output_wrt_x  # the jacobian has not been computed for outputs yet
         # not being used yet
         self.M_func = None
 
@@ -244,7 +250,8 @@ class HybridEKF(KF):
         # TODO: add the var update
 
     def correction(self, system_output, system_input=None):
-        self.update_correction_matrices(system_input)  # the C matrix evaluation
+        # the C matrix evaluation and output eval
+        self.update_correction_matrices_and_get_estimated_output(system_input)
         # TODO: note the R matrix is not R tilde yet assuming that M is I
 
         # correction gain calculation
@@ -252,7 +259,7 @@ class HybridEKF(KF):
         K_c = self.mul_3(self.P_k_1_p, self.C.T, inv(self.mul_3(self.C, self.P_k_1_p,self.C.T) + self.R))
 
         # state correction
-        estimated_output = self.get_estimated_output()
+        estimated_output = self.estimated_system_output
         # X_k_c = x_k_1_p + K_k * (Y_k - h(x_k_1, 0, t_k)) where here X_k_1_p is our last estimate,
         # which must be a prediction since we predict before we correct
         X_k_c = self.X_k_1_p + mul(K_c, (system_output - estimated_output))
@@ -275,7 +282,7 @@ class HybridEKF(KF):
                                            "t": self.t})
         self.A = A_matrix_linearized["jac"]
 
-    def update_correction_matrices(self, system_input):
+    def update_correction_matrices_and_get_estimated_output(self, system_input):
         """
          this assumes that the y = h(x, v) is actually y = h(x,u,v)
 
@@ -284,21 +291,25 @@ class HybridEKF(KF):
         # the C matrix amd the M matrix the M matrix for later
         if self.C_func is not None:  # meaning we have a non linear output function
             if system_input is not None:  # the system output equations depends on u y = h(x,u,v)
-                C_matrix_linearized = self.C_func({{"x": self.X_k_1_p,
-                                                    "p": np.append(system_input, self.system.p_num),
-                                                    "t": self.t}})
+                C_matrix_linearized = self.C_func({"x": self.X_k_1_p,
+                                                   "p": np.append(system_input, self.system.p_num),
+                                                   "t": self.t})
             else:
-                C_matrix_linearized = self.C_func({{"x": self.X_k_1_p,
-                                                    "p": self.system.p_num,
-                                                    "t": self.t}})
+                C_matrix_linearized = self.C_func({"x": self.X_k_1_p,
+                                                   "p": self.system.p_num,
+                                                   "t": self.t})
             self.C = C_matrix_linearized["jac"]
+            self.estimated_system_output = C_matrix_linearized["ode"]
         else:  # no non linear output function, and the self.C has already been set in the init function
-            pass
+            self.estimated_system_output = mul(self.C,  self.X_k_1_p)
 
     def get_estimated_output(self):
         # Only linear case implemented
         print "Note that only linear case in estimated output has been implemented "
-        return mul(self.C,  self.X_k_1_p)
+        if self.C_func is None:  # no function found assuming linear input
+            return mul(self.C,  self.X_k_1_p)
+        else:  # an output function exists and should be used to calculate the output of the system
+            return self.C_func()
 
     def update_EKF(self):
         pass

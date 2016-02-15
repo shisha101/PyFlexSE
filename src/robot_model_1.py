@@ -7,11 +7,11 @@ class SystemModel:
         """
         for the parameter vector make sure that the inputs go in before the parameters(constants/time varying)
         """
-        self.p_num = []
-        self.p_sym = None
-        self.inputs = None
-        self.outputs = None
-        self.state = None
+        self.p_num = None  # numeric parameters of the system (numpy array)
+        self.p_sym = None  # symbolic parameters of the system (allowed to be changed, from one evaluation to the next)
+        self.inputs = None  # symbolic system inputs
+        self.outputs = None  # the expression (SX) for the output equation describing the outputs(never None after init)
+        self.state = None  # the symbolic vector of system states
         # additions
         self.current_state = []
 
@@ -21,7 +21,7 @@ class SystemModel:
         self.jac_X_dot_wrt_p = None  # Joacobian with respect to parameters(all (inputs + system parameters))
         self.jac_X_dot_complete = None  # Jacobian with respect to all states and parameters as well as time
 
-        self.output_SX = None  # expression (SX) for output equation  #TODO: factor in the SX for nonlinear output if it is non we will assume that C is Identity
+        self.C = None  # in the case of linear outputs this self.C is set and output_func stays null and vice versa
         self.output_func = None  # CasADi (SXFunction) for the output
         self.jac_output_wrt_x = None  # jacobian of output function wrt states
 
@@ -55,12 +55,16 @@ class SystemModel:
             self.jac_X_dot_wrt_x = self.X_dot_func.jacobian("x")  # (0)
             self.jac_X_dot_wrt_p = self.X_dot_func.jacobian("p")  # (2) # x, z, p, t (the order of vars in the ode)
 
-    def compute_jac_output_SX(self):
+    def compute_jac_output_func(self):
         """
         This function has not been tested
         """
-        if self.output_SX is not None and self.output_func is not None:
-            self.jac_output_wrt_x = self.output_func.jacobian("x")  # (0)
+        if self.outputs is not None and self.output_func is not None:
+            jacobian = self.output_func.jacobian("x")
+            self.jac_output_wrt_x = jacobian  # (0)
+        else:
+            print "output function or output expression has not been set, No jacobian calculation possible." \
+                  "does the system have a linear output function ?"
 
     # getter functions
     def get_p_numeric(self):
@@ -143,7 +147,8 @@ class RobotModel2D(SystemModel):
         self.inputs = vertcat([v_l, v_r])
 
         # outputs
-        self.outputs = self.state
+        self.C = np.diag([1, 1, 1])
+        self.outputs = mul(self.C, self.state)
 
         # casadi function
         x1_dot = cos(x[2])*(v_l+v_r)*0.5
@@ -183,7 +188,8 @@ class RobotModel3D(RobotModel2D):
         x = self.state  # used for short hand notation during the dev of equations
 
         # outputs
-        self.outputs = self.state
+        self.C = np.diag([1, 1, 1, 1, 1, 1])
+        self.outputs = mul(self.C, self.state)
 
         # casadi function
         x1_dot = 0.5*(self.inputs[0]+self.inputs[1])*cos(x[5])*cos(x[4])
