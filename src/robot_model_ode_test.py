@@ -134,7 +134,7 @@ def main():
     I_options["t0"] = t_start
     I_options["tf"] = t_end
 
-    casadi_integrator = Integrator("2dRobot", "cvodes", robot_model_2D.casadi_function, I_options)
+    casadi_integrator = Integrator("2dRobot", "cvodes", robot_model_2D.X_dot_func, I_options)
     casadi_integrator.setInput(initial_cond, "x0")
     casadi_integrator.setInput(np.append(input_v, robot_model_2D.p_num), "p")
     casadi_integrator.evaluate()
@@ -181,7 +181,7 @@ def main():
     I_options["t0"] = t_start
     I_options["tf"] = t_end
 
-    casadi_integrator = Integrator("2dRobot", "cvodes", robot_model_3D.casadi_function, I_options)
+    casadi_integrator = Integrator("2dRobot", "cvodes", robot_model_3D.X_dot_func, I_options)
     casadi_integrator.setInput(initial_cond, "x0")
     casadi_integrator.setInput(np.append(input_v, robot_model_3D.p_num), "p")
     casadi_integrator.evaluate()
@@ -190,6 +190,16 @@ def main():
     sim.setInput(np.append(input_v, robot_model_3D.p_num), "p")
     sim.evaluate()
     plot_3d(t, sim.getOutput().toArray().T, 4)
+
+    robot_model_3D.compute_jac_Xdot()
+
+    print "the 3D robot model's input(s) is(are): %s: \n" % (robot_model_3D.get_inputs())
+    print "the 3D robot model's output(s) is(are): %s: \n" % (robot_model_3D.get_outputs())
+    print "the 3D robot model's state(s) is(are): %s: \n" % (robot_model_3D.get_states())
+    print "the 3D robot model's equations  is(are): %s: \n" % (robot_model_3D.get_state_transiton_eq())
+    print "the 3D robot model's complete jacobian  is(are): %s: \n" % robot_model_3D.jac_X_dot_complete
+    print "the 3D robot model's jacobian wrt x is(are): %s: \n" % robot_model_3D.jac_X_dot_wrt_x
+    print "the 3D robot model's jacobian wrt p is(are): %s: \n" % robot_model_3D.jac_X_dot_wrt_p
 
 
 if __name__ == '__main__':
