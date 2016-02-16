@@ -123,27 +123,27 @@ def main():
     # # parameters
     v_l = 0.5
     v_r = 1.0
-    params = [v_l, v_r]
+    input_v = [v_l, v_r]
 
     robot_model_2D = RobotModel2D(1.5, 0.33)
 
-    x_t = odeint(robot_model_2D.system_ode_odeint, initial_cond, t, args=(params,))  # note that the end comma is needed
+    x_t = odeint(robot_model_2D.system_ode_odeint, initial_cond, t, args=(input_v,))  # note that the end comma is needed
     plot_2d(t, x_t, 1)
 
     I_options = {}
     I_options["t0"] = t_start
     I_options["tf"] = t_end
 
-    casadi_integrator = Integrator("2dRobot", "cvodes", robot_model_2D.casadi_function, I_options)
+    casadi_integrator = Integrator("2dRobot", "cvodes", robot_model_2D.X_dot_func, I_options)
     casadi_integrator.setInput(initial_cond, "x0")
-    casadi_integrator.setInput(np.append(robot_model_2D.p_num, params), "p")
+    casadi_integrator.setInput(np.append(input_v, robot_model_2D.p_num), "p")
     casadi_integrator.evaluate()
     sim = Simulator("sim", casadi_integrator, t)
     sim.setInput(initial_cond, "x0")
-    sim.setInput(np.append(robot_model_2D.p_num, params), "p")
+    sim.setInput(np.append(input_v, robot_model_2D.p_num), "p")
     sim.evaluate()
-    print (t.shape, "shape of t")
-    print (sim.getOutput().toArray().T.shape, "shape of array")
+    # print (t.shape, "shape of t")
+    # print (sim.getOutput().toArray().T.shape, "shape of array")
     plot_2d(t, sim.getOutput().toArray().T, 2)
 
     # IC 3D
@@ -161,35 +161,45 @@ def main():
     dRoll = 0.02
     dPitch = 0.0
     dYaw = 0.0
-    params = [v_l, v_r, dRoll, dPitch, dYaw]
+    input_v = [v_l, v_r, dRoll, dPitch, dYaw]
 
     robot_model_3D = RobotModel3D(1.5, 0.33)
-    x_t = odeint(robot_model_3D.system_ode_odeint, initial_cond, t, args=(params,))  # note that the end comma is needed
+    x_t = odeint(robot_model_3D.system_ode_odeint, initial_cond, t, args=(input_v,))  # note that the end comma is needed
     plot_3d(t, x_t, 3)
 
     # Casadi 3D
 
-    # parameters 3D odeint
+    # parameters 3D CasADi
     v_l = 0.9
     v_r = 1.0
     dRoll = 0.02
     dPitch = 0.0
     dYaw = 0.0
-    params = [v_l, v_r, dRoll, dPitch, dYaw]
+    input_v = [v_l, v_r, dRoll, dPitch, dYaw]
 
     I_options = {}
     I_options["t0"] = t_start
     I_options["tf"] = t_end
 
-    casadi_integrator = Integrator("2dRobot", "cvodes", robot_model_3D.casadi_function, I_options)
+    casadi_integrator = Integrator("2dRobot", "cvodes", robot_model_3D.X_dot_func, I_options)
     casadi_integrator.setInput(initial_cond, "x0")
-    casadi_integrator.setInput(np.append(robot_model_3D.p_num, params), "p")
+    casadi_integrator.setInput(np.append(input_v, robot_model_3D.p_num), "p")
     casadi_integrator.evaluate()
     sim = Simulator("sim", casadi_integrator, t)
     sim.setInput(initial_cond, "x0")
-    sim.setInput(np.append(robot_model_3D.p_num, params), "p")
+    sim.setInput(np.append(input_v, robot_model_3D.p_num), "p")
     sim.evaluate()
     plot_3d(t, sim.getOutput().toArray().T, 4)
+
+    robot_model_3D.compute_jac_Xdot()
+
+    print "the 3D robot model's input(s) is(are): %s: \n" % (robot_model_3D.get_inputs())
+    print "the 3D robot model's output(s) is(are): %s: \n" % (robot_model_3D.get_outputs())
+    print "the 3D robot model's state(s) is(are): %s: \n" % (robot_model_3D.get_states())
+    print "the 3D robot model's equations  is(are): %s: \n" % (robot_model_3D.get_state_transiton_eq())
+    print "the 3D robot model's complete jacobian  is(are): %s: \n" % robot_model_3D.jac_X_dot_complete
+    print "the 3D robot model's jacobian wrt x is(are): %s: \n" % robot_model_3D.jac_X_dot_wrt_x
+    print "the 3D robot model's jacobian wrt p is(are): %s: \n" % robot_model_3D.jac_X_dot_wrt_p
 
 
 if __name__ == '__main__':
