@@ -1,6 +1,6 @@
 import numpy as np
 from casadi import *
-from robot_model_1 import SystemModel
+from robot_py_localization.robot_model_1 import SystemModel
 import matplotlib.pyplot as plt
 import cProfile
 

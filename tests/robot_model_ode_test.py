@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import odeint
-from robot_model_1 import RobotModel2D, RobotModel3D
+from robot_py_localization.robot_model_1 import RobotModel2D, RobotModel3D
 from casadi import *
 # import cProfile
 

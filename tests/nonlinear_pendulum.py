@@ -3,8 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from copy import deepcopy
 
-from robot_model_1 import SystemModel
-from Extended_Kalman_Filter import HybridEKF
+from robot_py_localization.robot_model_1 import SystemModel
+from robot_py_localization.Extended_Kalman_Filter import HybridEKF
 
 import cProfile
 

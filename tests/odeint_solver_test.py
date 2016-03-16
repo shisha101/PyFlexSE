@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import odeint
-from mass_spring_damper_model import msd_model
+from robot_py_localization.mass_spring_damper_model import msd_model
 
 
 def system_function_real(x, t, params):
