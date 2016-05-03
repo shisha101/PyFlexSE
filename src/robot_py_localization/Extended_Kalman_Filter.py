@@ -249,14 +249,39 @@ class HybridEKF(KF):
         self.X_k_1_p = self.system_integrator.getOutput()
         # TODO: add the var update
 
-    def correction(self, system_output, system_input=None):
+    def correction(self, system_output, system_input=None, system_output_mask=None):
+        """
+        incorporates the sensor data to improve the system's state estimate
+        @param system_output: the output of the system in terms of a numpy array
+        @param system_input: the input to the system in terms of a numpy array
+        @param system_output_mask: the mask with which the K is masked to remove system_outputs, this is done instead of
+        manipulating the C, and R matrices of the system. The outputs masked with zero do not contribute to the states
+        correction.
+        """
+        # TODO: make sure that the masking of K does not affect covariance propagation
         # the C matrix evaluation and output eval
         self.update_correction_matrices_and_get_estimated_output(system_input)
         # TODO: note the R matrix is not R tilde yet assuming that M is I
 
         # correction gain calculation
         # K_c = P_k_1_p * C.T * (C * P_k_1_p* C.T + R)^-1
-        K_c = self.mul_3(self.P_k_1_p, self.C.T, inv(self.mul_3(self.C, self.P_k_1_p,self.C.T) + self.R))
+        K_c = self.mul_3(self.P_k_1_p, self.C.T, np.linalg.inv(self.mul_3(self.C, self.P_k_1_p,self.C.T) + self.R))
+        # print self.mul_3(self.C, self.P_k_1_p,self.C.T) + self.R
+        # print type(self.mul_3(self.C, self.P_k_1_p,self.C.T) + self.R)
+        #
+        # # print inv(self.mul_3(self.C, self.P_k_1_p,self.C.T) + self.R)
+        # print np.linalg.inv(self.mul_3(self.C, self.P_k_1_p,self.C.T) + self.R)
+        #
+        # print np.matrix(self.mul_3(self.C, self.P_k_1_p,self.C.T) + self.R)
+        # print type(np.matrix(self.mul_3(self.C, self.P_k_1_p,self.C.T) + self.R))
+        if system_output_mask is not None:  # mapping is present
+            if system_output_mask.shape[0] == self.no:
+            # if system_output_mask.
+                K_c_array = K_c.toArray()
+                K_c = K_c_array * system_output_mask
+            else:
+                print "The mask provided does not cover the given system outputs, either the mask is larger or " \
+                      "smaller than the specified size of the system outputs "
 
         # state correction
         estimated_output = self.estimated_system_output
