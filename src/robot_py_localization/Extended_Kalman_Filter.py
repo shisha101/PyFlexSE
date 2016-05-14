@@ -173,6 +173,7 @@ class HybridEKF(KF):
         self.P_sym = SX.sym("p", self.ns, self.ns)  # nxn symbolic matrix
         self.t_sym = SX.sym("t")  # symbolic time
         self.A_sym = SX.sym("a", self.ns, self.ns)
+        self.Q_sym = SX.sym("q", self.ns, self.ns)
         # not being used yet
         self.L_sym = None
         self.M_sym = None
@@ -211,8 +212,8 @@ class HybridEKF(KF):
         self.create_integrators()
 
     def create_p_dot_function(self):
-        P_dot = mul(self.A_sym, self.P_sym) + mul(self.P_sym, self.A_sym.T) + self.Q # TODO: generalize to L * Q * L.T and make it a parameter in the eq below
-        f_in = daeIn(x=self.P_sym, p=self.A_sym, t=self.t_sym)  # Q is considered a constant
+        P_dot = mul(self.A_sym, self.P_sym) + mul(self.P_sym, self.A_sym.T) + self.Q_sym # TODO: generalize to L * Q * L.T and make it a parameter in the eq below
+        f_in = daeIn(x=self.P_sym, p=vertcat([self.A_sym, self.Q_sym]), t=self.t_sym)  # Q is considered a constant
         f_out = daeOut(ode=P_dot)
         self.cov_estimate_func = SXFunction("estimate_cov_function", f_in, f_out)
 
@@ -232,7 +233,7 @@ class HybridEKF(KF):
         # TODO: note the Q matrix is not Q tilde yet assuming that L is I
         # integrate the covariance
         self.estimate_cov_integrator.setInput(self.P_k_1_p, "x0")
-        self.estimate_cov_integrator.setInput(self.A, "p")
+        self.estimate_cov_integrator.setInput(vertcat([self.A, self.Q]), "p")
         self.estimate_cov_integrator.evaluate()
         # print self.estimate_cov_integrator.getOutput()
         # print "the type of the cov output is %s, the output is %s" %\
