@@ -170,7 +170,7 @@ class RobotModel2D(SystemModel):
 
 class RobotModel3D(RobotModel2D):
 
-    def __init__(self, w_d_n=0, w_r_n=0):
+    def __init__(self, w_d_n=0, w_r_n=0, use_gyro=False):
         # super(RobotModel2D, self).__init__(self, w_d_n, w_r_n)
         RobotModel2D.__init__(self, w_d_n, w_r_n)
 
@@ -197,10 +197,15 @@ class RobotModel3D(RobotModel2D):
         # note the negative sign for pitch due to the RH coordinate
         # system with x forward y left and z up (ROS convention)
         x3_dot = 0.5*(self.inputs[0]+self.inputs[1])*sin(-x[4])
-        x4_dot = roll_dot
-        x5_dot = pitch_dot
-        x6_dot = (self.inputs[1] - self.inputs[0])*cos(x[3])/self.p_sym[0]
-        # x6_dot = yaw_dot  #more accurate
+        if use_gyro:
+            x4_dot = roll_dot
+            x5_dot = pitch_dot
+            x6_dot = yaw_dot  #more accurate
+        else:
+            omega = (self.inputs[1] - self.inputs[0])/self.p_sym[0]
+            x4_dot = omega * (cos(x[5]) * sin(x[4]) * cos(x[3]) + sin(x[5]) * sin(x[3]))
+            x5_dot = omega * (sin(x[5]) * sin(x[4]) * cos(x[3]) - cos(x[5]) * sin(x[3]))
+            x6_dot = omega * cos(x[3]) * cos(x[4])
         self.X_dot = vertcat([x1_dot, x2_dot, x3_dot, x4_dot, x5_dot, x6_dot])
         self.X_dot_func = SXFunction("casadi_ode_function", daeIn(x=self.state,
                                                                   p=vertcat([self.inputs, self.p_sym]),
