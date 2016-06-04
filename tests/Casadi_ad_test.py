@@ -147,7 +147,7 @@ def system_and_jac_evaluation():
     X_dot = [vertcat([X_dot0, X_dot1, X_dot2, X_dot3])] # considerd 1 output
     system_equations = SXFunction("system_ode_equations", [X], X_dot)
     system_eq_jacobian = system_equations.jacobian()
-    for i in xrange(100,000):
+    for i in xrange(1000000):
         # print system_equations.nIn(), system_equations.nOut()
         system_equations.setInput([2, 1, 1, 0])
         system_equations.evaluate()
@@ -166,4 +166,4 @@ def system_and_jac_evaluation():
 # cProfile.run("sx_diff()")
 # cProfile.run("mx_diff()")
 cProfile.run("system_and_jac_evaluation()")
-print "Time needed for 100,000 evaluations of function and jacobian"
+print "Time needed for 1,000,000 evaluations of function and jacobian"
