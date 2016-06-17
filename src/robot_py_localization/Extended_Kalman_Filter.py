@@ -23,6 +23,7 @@ class KF:
         self.B = None
         self.C = None
         self.L = None
+        self.innovations = None
         self.t = 0.0
         if Qin is None:
             if self.system.system_cov is None:
@@ -288,7 +289,8 @@ class HybridEKF(KF):
         estimated_output = self.estimated_system_output
         # X_k_c = x_k_1_p + K_k * (Y_k - h(x_k_1, 0, t_k)) where here X_k_1_p is our last estimate,
         # which must be a prediction since we predict before we correct
-        X_k_c = self.X_k_1_p + mul(K_c, (system_output - estimated_output))
+        self.innovations = system_output - estimated_output
+        X_k_c = self.X_k_1_p + mul(K_c, (self.innovations))
 
         # covariance correction
         # P_k_c = (I - K_k * C_k) * P_k_1 * (I - K_k * C_k).T + K_k * R_k * K_k.T
